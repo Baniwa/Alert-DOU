@@ -1,0 +1,18 @@
+[project]
+name = "alert-dou"
+version = "0.1.0"
+description = "AI-powered monitoring system for the Brazilian Official Gazette (DOU)"
+requires-python = ">=3.12"
+dependencies = [
+    "httpx>=0.28",
+    "beautifulsoup4>=4.13",
+    "playwright>=1.51",
+    "playwright-stealth>=2.0",
+    "python-dotenv>=1.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "pytest-asyncio>=0.24",
+]
