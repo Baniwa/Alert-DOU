@@ -1,0 +1,16 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "shell": "bash",
+            "command": "code docs/wiki/index.md; echo '{\"systemMessage\": \"Wiki aberta — docs/wiki/index.md disponível para estudo\"}'",
+            "statusMessage": "Abrindo wiki..."
+          }
+        ]
+      }
+    ]
+  }
+}
