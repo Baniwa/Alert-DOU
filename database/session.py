@@ -17,7 +17,7 @@ engine = create_engine(
     echo=False,
 )
 
-_SessionFactory = sessionmaker(bind=engine, autocommit=False, autoflush=False)
+_SessionFactory = sessionmaker(bind=engine, autocommit=False, autoflush=False, expire_on_commit=False)
 
 
 @contextmanager
