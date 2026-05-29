@@ -1,9 +1,9 @@
 import { format, isWeekend, subDays } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
+import { ChevronLeft, ChevronRight, FileText, Layers } from 'lucide-react'
 import { useState } from 'react'
 import { useEditions } from '../../../application/hooks/useEditions'
 import { Section } from '../../../domain/value-objects/Section'
-import { DatePicker } from '../../components/domain/DatePicker/DatePicker'
 import { EditionCard } from '../../components/domain/EditionCard/EditionCard'
 
 function lastWorkday(): Date {
@@ -12,11 +12,26 @@ function lastWorkday(): Date {
   return d
 }
 
+function prevWorkday(d: Date): Date {
+  let prev = subDays(d, 1)
+  while (isWeekend(prev)) prev = subDays(prev, 1)
+  return prev
+}
+
+function nextWorkday(d: Date): Date {
+  const next = new Date(d)
+  next.setDate(next.getDate() + 1)
+  while (isWeekend(next)) next.setDate(next.getDate() + 1)
+  return next
+}
+
 const SECTION_ORDER = [Section.SECTION_1, Section.SECTION_2, Section.SECTION_3, Section.EXTRA]
 
 export function HomePage() {
   const [date, setDate] = useState<Date>(lastWorkday)
   const { data: editions, isLoading, isError } = useEditions(date)
+  const today = lastWorkday()
+  const isToday = format(date, 'yyyy-MM-dd') === format(today, 'yyyy-MM-dd')
 
   const ordered = SECTION_ORDER
     .map((s) => editions?.find((e) => e.section === s))
@@ -26,55 +41,93 @@ export function HomePage() {
   const totalPages = editions?.reduce((sum, e) => sum + e.pageCount, 0) ?? 0
 
   return (
-    <div>
-      {/* Toolbar */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8 pb-5 border-b border-white/8">
-        <div>
-          <p className="text-[11px] font-semibold text-[#C9A84C] uppercase tracking-[0.15em] mb-1">
-            Diário Oficial da União
-          </p>
-          <h2 className="text-2xl font-extrabold text-white leading-tight">
+    <div className="max-w-5xl">
+
+      {/* ── Page heading ── */}
+      <div className="mb-8">
+        <p className="text-[11px] font-semibold text-[#C9A84C] uppercase tracking-[0.18em] mb-2">
+          Diário Oficial da União
+        </p>
+        <div className="flex items-center justify-between gap-4 flex-wrap">
+          <h1 className="text-2xl font-extrabold text-white leading-tight">
             {format(date, "EEEE',' dd 'de' MMMM 'de' yyyy", { locale: ptBR })}
-          </h2>
+          </h1>
+
+          {/* Date nav */}
+          <div className="flex items-center gap-1.5">
+            <button
+              onClick={() => setDate(prevWorkday(date))}
+              className="w-8 h-8 flex items-center justify-center rounded-lg border border-white/10 text-gray-400 hover:border-[#C9A84C]/40 hover:text-[#C9A84C] transition-all"
+            >
+              <ChevronLeft size={15} />
+            </button>
+
+            <input
+              type="date"
+              value={format(date, 'yyyy-MM-dd')}
+              max={format(today, 'yyyy-MM-dd')}
+              onChange={(e) => e.target.value && setDate(new Date(e.target.value + 'T00:00:00'))}
+              className="h-8 px-3 text-[12px] font-medium bg-[#0A1628] border border-white/10 rounded-lg text-white focus:outline-none focus:border-[#C9A84C]/50 transition-colors cursor-pointer"
+            />
+
+            <button
+              onClick={() => setDate(nextWorkday(date))}
+              disabled={isToday}
+              className="w-8 h-8 flex items-center justify-center rounded-lg border border-white/10 text-gray-400 hover:border-[#C9A84C]/40 hover:text-[#C9A84C] transition-all disabled:opacity-20 disabled:cursor-not-allowed"
+            >
+              <ChevronRight size={15} />
+            </button>
+          </div>
         </div>
-        <DatePicker value={date} onChange={setDate} />
       </div>
 
-      {/* Stats bar */}
+      {/* ── Stats ── */}
       {!isLoading && editions && editions.length > 0 && (
         <div className="grid grid-cols-3 gap-3 mb-8">
-          {[
-            { label: 'Seções publicadas', value: ordered.length },
-            { label: 'Total de páginas', value: totalPages.toLocaleString('pt-BR') },
-            { label: 'Edição nº', value: editions[0].editionNumber },
-          ].map((stat) => (
-            <div key={stat.label} className="bg-[#0A1628] border border-white/8 rounded-xl px-4 py-3">
-              <p className="text-[10px] text-gray-500 uppercase tracking-wider mb-0.5">{stat.label}</p>
-              <p className="text-xl font-bold text-white">{stat.value}</p>
+          <div className="bg-[#0A1628] border border-white/8 rounded-xl p-4 flex items-center gap-3">
+            <div className="w-8 h-8 rounded-lg bg-[#1351B4]/20 flex items-center justify-center flex-shrink-0">
+              <Layers size={14} className="text-[#5B9BD5]" />
             </div>
-          ))}
+            <div>
+              <p className="text-[10px] text-gray-500 uppercase tracking-wider leading-none mb-1">Seções</p>
+              <p className="text-xl font-bold text-white leading-none">{ordered.length}</p>
+            </div>
+          </div>
+          <div className="bg-[#0A1628] border border-white/8 rounded-xl p-4 flex items-center gap-3">
+            <div className="w-8 h-8 rounded-lg bg-[#C9A84C]/15 flex items-center justify-center flex-shrink-0">
+              <FileText size={14} className="text-[#C9A84C]" />
+            </div>
+            <div>
+              <p className="text-[10px] text-gray-500 uppercase tracking-wider leading-none mb-1">Total de páginas</p>
+              <p className="text-xl font-bold text-white leading-none">{totalPages.toLocaleString('pt-BR')}</p>
+            </div>
+          </div>
+          <div className="bg-[#0A1628] border border-white/8 rounded-xl p-4">
+            <p className="text-[10px] text-gray-500 uppercase tracking-wider leading-none mb-1">Edição</p>
+            <p className="text-xl font-bold text-white leading-none">Nº {editions[0].editionNumber}</p>
+          </div>
         </div>
       )}
 
-      {/* Loading */}
+      {/* ── Loading ── */}
       {isLoading && (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {[1, 2, 3].map((i) => (
-            <div key={i} className="h-52 bg-[#0A1628] rounded-xl animate-pulse border border-white/5" />
+            <div key={i} className="h-56 bg-[#0A1628] rounded-xl animate-pulse border border-white/5" />
           ))}
         </div>
       )}
 
-      {/* Error */}
+      {/* ── Error ── */}
       {isError && (
-        <div className="rounded-xl border border-red-900/40 bg-red-950/20 p-8 text-center">
-          <p className="text-2xl mb-2">⚠️</p>
+        <div className="rounded-xl border border-red-900/40 bg-red-950/20 p-10 text-center">
+          <p className="text-2xl mb-3">⚠️</p>
           <p className="text-sm font-semibold text-red-400 mb-1">Não foi possível conectar à API</p>
-          <p className="text-xs text-red-600">{import.meta.env.VITE_API_URL ?? 'http://localhost:8002'}</p>
+          <p className="text-xs text-red-700 font-mono">{import.meta.env.VITE_API_URL ?? 'http://localhost:8002'}</p>
         </div>
       )}
 
-      {/* Empty */}
+      {/* ── Empty ── */}
       {!isLoading && !isError && ordered.length === 0 && (
         <div className="rounded-xl border border-dashed border-white/10 p-16 text-center">
           <p className="text-4xl mb-4">📋</p>
@@ -83,18 +136,16 @@ export function HomePage() {
         </div>
       )}
 
-      {/* Edition grid */}
+      {/* ── Editions grid ── */}
       {!isLoading && ordered.length > 0 && (
         <>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-            {ordered.map((edition) => edition && (
-              <EditionCard key={edition.id} edition={edition} />
-            ))}
+            {ordered.map((ed) => ed && <EditionCard key={ed.id} edition={ed} />)}
           </div>
 
           {extras.length > 0 && (
-            <div className="mt-6">
-              <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-widest mb-3">
+            <div className="mt-8">
+              <p className="text-[10px] font-semibold text-gray-600 uppercase tracking-widest mb-3">
                 Edições Extras
               </p>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

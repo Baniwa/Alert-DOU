@@ -1,96 +1,111 @@
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
+import { ArrowRight, FileText, Scale, Users } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import type { Edition } from '../../../../domain/entities/Edition'
-import { Section, SECTION_DESCRIPTIONS, SECTION_LABELS } from '../../../../domain/value-objects/Section'
+import { Section, SECTION_DESCRIPTIONS } from '../../../../domain/value-objects/Section'
 
-const SECTION_ACCENT: Record<Section, { bar: string; glow: string; badge: string; icon: string }> = {
+const SECTION_CONFIG: Record<Section, {
+  icon: React.ElementType
+  label: string
+  accent: string
+  iconBg: string
+  iconColor: string
+  border: string
+  glow: string
+}> = {
   [Section.SECTION_1]: {
-    bar: 'bg-[#1351B4]',
-    glow: 'hover:shadow-[0_0_24px_-4px_rgba(19,81,180,0.45)]',
-    badge: 'bg-[#1351B4]/20 text-[#5B9BD5] border border-[#1351B4]/30',
-    icon: '⚖️',
+    icon: Scale,
+    label: 'Seção 1',
+    accent: 'bg-[#1351B4]',
+    iconBg: 'bg-[#1351B4]/15',
+    iconColor: 'text-[#5B9BD5]',
+    border: 'hover:border-[#1351B4]/50',
+    glow: 'hover:shadow-[0_4px_32px_-4px_rgba(19,81,180,0.35)]',
   },
   [Section.SECTION_2]: {
-    bar: 'bg-[#C9A84C]',
-    glow: 'hover:shadow-[0_0_24px_-4px_rgba(201,168,76,0.4)]',
-    badge: 'bg-[#C9A84C]/15 text-[#C9A84C] border border-[#C9A84C]/30',
-    icon: '👤',
+    icon: Users,
+    label: 'Seção 2',
+    accent: 'bg-[#C9A84C]',
+    iconBg: 'bg-[#C9A84C]/15',
+    iconColor: 'text-[#C9A84C]',
+    border: 'hover:border-[#C9A84C]/50',
+    glow: 'hover:shadow-[0_4px_32px_-4px_rgba(201,168,76,0.35)]',
   },
   [Section.SECTION_3]: {
-    bar: 'bg-[#168821]',
-    glow: 'hover:shadow-[0_0_24px_-4px_rgba(22,136,33,0.4)]',
-    badge: 'bg-[#168821]/15 text-[#4CAF50] border border-[#168821]/30',
-    icon: '📄',
+    icon: FileText,
+    label: 'Seção 3',
+    accent: 'bg-[#168821]',
+    iconBg: 'bg-[#168821]/15',
+    iconColor: 'text-[#4CAF50]',
+    border: 'hover:border-[#168821]/50',
+    glow: 'hover:shadow-[0_4px_32px_-4px_rgba(22,136,33,0.35)]',
   },
   [Section.EXTRA]: {
-    bar: 'bg-[#C9A84C]',
-    glow: 'hover:shadow-[0_0_24px_-4px_rgba(201,168,76,0.3)]',
-    badge: 'bg-[#C9A84C]/10 text-[#C9A84C] border border-[#C9A84C]/20',
-    icon: '📢',
+    icon: FileText,
+    label: 'Extra',
+    accent: 'bg-[#C9A84C]/60',
+    iconBg: 'bg-[#C9A84C]/10',
+    iconColor: 'text-[#C9A84C]/70',
+    border: 'hover:border-[#C9A84C]/30',
+    glow: 'hover:shadow-[0_4px_32px_-4px_rgba(201,168,76,0.2)]',
   },
 }
 
-interface Props {
-  edition: Edition
-}
+interface Props { edition: Edition }
 
 export function EditionCard({ edition }: Props) {
-  const accent = SECTION_ACCENT[edition.section]
-  const label = SECTION_LABELS[edition.section].split('—')[0].trim()
-  const description = SECTION_DESCRIPTIONS[edition.section]
+  const cfg = SECTION_CONFIG[edition.section]
+  const Icon = cfg.icon
 
   return (
     <Link
       to={`/editions/${edition.id}`}
-      className={`group relative flex flex-col bg-[#0A1628] border border-white/8 rounded-xl overflow-hidden transition-all duration-300 ${accent.glow} hover:border-white/20 hover:-translate-y-0.5`}
+      className={`group relative flex flex-col bg-[#0A1628] border border-white/8 rounded-xl overflow-hidden transition-all duration-250 ${cfg.border} ${cfg.glow} hover:-translate-y-0.5`}
     >
-      {/* Top accent bar */}
-      <div className={`h-0.5 w-full ${accent.bar}`} />
+      {/* Top color bar */}
+      <div className={`h-[3px] w-full ${cfg.accent}`} />
 
-      <div className="flex flex-col flex-1 p-5">
-        {/* Header row */}
-        <div className="flex items-center justify-between mb-4">
-          <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-bold tracking-wide uppercase ${accent.badge}`}>
-            <span>{accent.icon}</span>
-            {label}
-          </span>
-          <span className="text-[11px] text-gray-600 font-mono">
+      <div className="p-5 flex flex-col flex-1 gap-4">
+
+        {/* Icon + Section label */}
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2.5">
+            <div className={`w-9 h-9 rounded-xl ${cfg.iconBg} flex items-center justify-center`}>
+              <Icon size={16} className={cfg.iconColor} />
+            </div>
+            <div>
+              <p className="text-[11px] font-bold text-gray-300 leading-none">{cfg.label}</p>
+              <p className="text-[10px] text-gray-600 mt-0.5 leading-none">Atos Normativos</p>
+            </div>
+          </div>
+          <span className="text-[10px] text-gray-600 font-mono bg-white/4 px-2 py-1 rounded-md">
             Nº {edition.editionNumber}
           </span>
         </div>
 
         {/* Title */}
-        <h3 className="text-[15px] font-bold text-white leading-snug mb-2 group-hover:text-[#C9A84C] transition-colors duration-200">
+        <h3 className="text-[14px] font-semibold text-white leading-snug group-hover:text-[#C9A84C] transition-colors duration-200">
           {edition.title}
         </h3>
 
         {/* Description */}
-        <p className="text-[12px] text-gray-500 leading-relaxed flex-1 mb-5">
-          {description}
+        <p className="text-[12px] text-gray-500 leading-relaxed flex-1">
+          {SECTION_DESCRIPTIONS[edition.section]}
         </p>
 
         {/* Footer */}
-        <div className="flex items-end justify-between pt-3 border-t border-white/6">
-          <div>
-            <p className="text-[10px] text-gray-600 uppercase tracking-wider mb-0.5">Publicado em</p>
-            <p className="text-[13px] font-semibold text-gray-300">
-              {format(edition.pubDate, "dd/MM/yyyy", { locale: ptBR })}
-            </p>
+        <div className="flex items-center justify-between pt-3 border-t border-white/6">
+          <div className="flex items-center gap-4 text-[11px] text-gray-600">
+            <span>{format(edition.pubDate, 'dd/MM/yyyy', { locale: ptBR })}</span>
+            <span className="w-px h-3 bg-white/10" />
+            <span>{edition.pageCount.toLocaleString('pt-BR')} pág.</span>
           </div>
-          <div className="text-right">
-            <p className="text-[10px] text-gray-600 uppercase tracking-wider mb-0.5">Páginas</p>
-            <p className="text-[13px] font-semibold text-gray-300">
-              {edition.pageCount.toLocaleString('pt-BR')}
-            </p>
-          </div>
+          <ArrowRight
+            size={14}
+            className="text-gray-700 group-hover:text-[#C9A84C] group-hover:translate-x-0.5 transition-all duration-200"
+          />
         </div>
-      </div>
-
-      {/* Bottom arrow indicator */}
-      <div className="px-5 pb-4 flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-        <span className="text-[11px] text-[#C9A84C] font-semibold">Ver detalhes</span>
-        <span className="text-[#C9A84C] text-sm">→</span>
       </div>
     </Link>
   )
