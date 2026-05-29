@@ -1,7 +1,7 @@
 import io
 import logging
 
-import httpx
+from curl_cffi import requests
 import pdfplumber
 
 logger = logging.getLogger(__name__)
@@ -21,10 +21,11 @@ _HEADERS = {
 
 
 def _download_pdf(pdf_url: str) -> bytes:
-    """Download PDF using HTTP/2 to match the DOU server's WAF requirements."""
-    with httpx.Client(http2=True, timeout=_REQUEST_TIMEOUT) as client:
-        response = client.get(pdf_url, headers=_HEADERS, follow_redirects=True)
-        response.raise_for_status()
+    """Download PDF using curl_cffi to match the DOU server's WAF requirements."""
+    with requests.Session(impersonate="chrome", timeout=_REQUEST_TIMEOUT) as client:
+        response = client.get(pdf_url, headers=_HEADERS)
+        if response.status_code != 200:
+            raise RuntimeError(f"Failed to download PDF. Status code: {response.status_code}")
 
     logger.info("Downloaded %d bytes (%s)", len(response.content), pdf_url[:80])
     return response.content

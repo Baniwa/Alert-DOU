@@ -41,15 +41,15 @@ export function HomePage() {
   const totalPages = editions?.reduce((sum, e) => sum + e.pageCount, 0) ?? 0
 
   return (
-    <div className="max-w-5xl">
+    <div className="w-full">
 
       {/* ── Page heading ── */}
-      <div className="mb-8">
-        <p className="text-[11px] font-semibold text-[#C9A84C] uppercase tracking-[0.18em] mb-2">
+      <div className="mb-8 border-b border-gray-200 pb-6">
+        <p className="text-[11px] font-bold text-[#1351B4] uppercase tracking-[0.15em] mb-2">
           Diário Oficial da União
         </p>
         <div className="flex items-center justify-between gap-4 flex-wrap">
-          <h1 className="text-2xl font-extrabold text-white leading-tight">
+          <h1 className="text-2xl font-extrabold text-gray-900 leading-tight">
             {format(date, "EEEE',' dd 'de' MMMM 'de' yyyy", { locale: ptBR })}
           </h1>
 
@@ -57,9 +57,9 @@ export function HomePage() {
           <div className="flex items-center gap-1.5">
             <button
               onClick={() => setDate(prevWorkday(date))}
-              className="w-8 h-8 flex items-center justify-center rounded-lg border border-white/10 text-gray-400 hover:border-[#C9A84C]/40 hover:text-[#C9A84C] transition-all"
+              className="w-9 h-9 flex items-center justify-center rounded-lg border border-gray-300 bg-white text-gray-600 hover:border-[#1351B4] hover:text-[#1351B4] hover:shadow-sm transition-all"
             >
-              <ChevronLeft size={15} />
+              <ChevronLeft size={16} />
             </button>
 
             <input
@@ -67,88 +67,75 @@ export function HomePage() {
               value={format(date, 'yyyy-MM-dd')}
               max={format(today, 'yyyy-MM-dd')}
               onChange={(e) => e.target.value && setDate(new Date(e.target.value + 'T00:00:00'))}
-              className="h-8 px-3 text-[12px] font-medium bg-[#0A1628] border border-white/10 rounded-lg text-white focus:outline-none focus:border-[#C9A84C]/50 transition-colors cursor-pointer"
+              className="h-9 px-3 text-[13px] font-semibold bg-white border border-gray-300 rounded-lg text-gray-800 focus:outline-none focus:border-[#1351B4] focus:ring-1 focus:ring-[#1351B4] transition-colors cursor-pointer"
             />
 
             <button
               onClick={() => setDate(nextWorkday(date))}
               disabled={isToday}
-              className="w-8 h-8 flex items-center justify-center rounded-lg border border-white/10 text-gray-400 hover:border-[#C9A84C]/40 hover:text-[#C9A84C] transition-all disabled:opacity-20 disabled:cursor-not-allowed"
+              className="w-9 h-9 flex items-center justify-center rounded-lg border border-gray-300 bg-white text-gray-600 hover:border-[#1351B4] hover:text-[#1351B4] hover:shadow-sm transition-all disabled:opacity-40 disabled:cursor-not-allowed"
             >
-              <ChevronRight size={15} />
+              <ChevronRight size={16} />
             </button>
           </div>
         </div>
       </div>
 
-      {/* ── Stats ── */}
-      {!isLoading && editions && editions.length > 0 && (
-        <div className="grid grid-cols-3 gap-3 mb-8">
-          <div className="bg-[#0A1628] border border-white/8 rounded-xl p-4 flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-[#1351B4]/20 flex items-center justify-center flex-shrink-0">
-              <Layers size={14} className="text-[#5B9BD5]" />
+      {/* ── Newsletter Header ── */}
+      {!isLoading && !isError && (
+        <div className={`mb-8 p-5 rounded-xl border shadow-sm ${ordered.length > 0 ? 'bg-[#168821]/5 border-[#168821]/20' : 'bg-gray-50 border-gray-200'}`}>
+          <div className="flex items-start gap-4">
+            <div className={`w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0 ${ordered.length > 0 ? 'bg-[#168821] text-white shadow-sm' : 'bg-gray-200 text-gray-500'}`}>
+              {ordered.length > 0 ? <FileText size={20} /> : <Layers size={20} />}
             </div>
             <div>
-              <p className="text-[10px] text-gray-500 uppercase tracking-wider leading-none mb-1">Seções</p>
-              <p className="text-xl font-bold text-white leading-none">{ordered.length}</p>
+              <h2 className={`text-lg font-bold mb-1 ${ordered.length > 0 ? 'text-[#168821]' : 'text-gray-700'}`}>
+                {ordered.length > 0 ? 'Publicações de hoje já disponíveis! 📰' : 'Nenhuma publicação neste dia.'}
+              </h2>
+              <p className="text-[13px] text-gray-600 leading-relaxed max-w-3xl">
+                {ordered.length > 0 
+                  ? `Foram publicadas ${ordered.length} seções oficiais e ${extras.length} edições extras. O documento completo contém ${totalPages.toLocaleString('pt-BR')} páginas sob a edição de número ${editions?.[0]?.editionNumber}.` 
+                  : 'O Diário Oficial da União não registrou publicações nesta data. Geralmente isso ocorre em finais de semana ou feriados nacionais.'}
+              </p>
             </div>
-          </div>
-          <div className="bg-[#0A1628] border border-white/8 rounded-xl p-4 flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-[#C9A84C]/15 flex items-center justify-center flex-shrink-0">
-              <FileText size={14} className="text-[#C9A84C]" />
-            </div>
-            <div>
-              <p className="text-[10px] text-gray-500 uppercase tracking-wider leading-none mb-1">Total de páginas</p>
-              <p className="text-xl font-bold text-white leading-none">{totalPages.toLocaleString('pt-BR')}</p>
-            </div>
-          </div>
-          <div className="bg-[#0A1628] border border-white/8 rounded-xl p-4">
-            <p className="text-[10px] text-gray-500 uppercase tracking-wider leading-none mb-1">Edição</p>
-            <p className="text-xl font-bold text-white leading-none">Nº {editions[0].editionNumber}</p>
           </div>
         </div>
       )}
 
       {/* ── Loading ── */}
       {isLoading && (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-8">
           {[1, 2, 3].map((i) => (
-            <div key={i} className="h-56 bg-[#0A1628] rounded-xl animate-pulse border border-white/5" />
+            <div key={i} className="h-56 bg-white rounded-xl shadow-sm border border-gray-200 animate-pulse" />
           ))}
         </div>
       )}
 
       {/* ── Error ── */}
       {isError && (
-        <div className="rounded-xl border border-red-900/40 bg-red-950/20 p-10 text-center">
-          <p className="text-2xl mb-3">⚠️</p>
-          <p className="text-sm font-semibold text-red-400 mb-1">Não foi possível conectar à API</p>
-          <p className="text-xs text-red-700 font-mono">{import.meta.env.VITE_API_URL ?? 'http://localhost:8002'}</p>
-        </div>
-      )}
-
-      {/* ── Empty ── */}
-      {!isLoading && !isError && ordered.length === 0 && (
-        <div className="rounded-xl border border-dashed border-white/10 p-16 text-center">
-          <p className="text-4xl mb-4">📋</p>
-          <p className="text-sm font-semibold text-gray-400 mb-1">Nenhuma edição coletada para esta data</p>
-          <p className="text-xs text-gray-600">O DOU é publicado apenas em dias úteis.</p>
+        <div className="rounded-xl border border-red-200 bg-red-50 p-10 text-center mb-8 shadow-sm">
+          <p className="text-3xl mb-4 text-red-500">⚠️</p>
+          <p className="text-[15px] font-bold text-red-800 mb-1">Não foi possível conectar ao servidor Gov.br</p>
+          <p className="text-xs text-red-600 font-mono bg-red-100 inline-block px-2 py-1 rounded mt-2">{import.meta.env.VITE_API_URL ?? 'http://localhost:8002'}</p>
         </div>
       )}
 
       {/* ── Editions grid ── */}
       {!isLoading && ordered.length > 0 && (
         <>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {ordered.map((ed) => ed && <EditionCard key={ed.id} edition={ed} />)}
           </div>
 
           {extras.length > 0 && (
-            <div className="mt-8">
-              <p className="text-[10px] font-semibold text-gray-600 uppercase tracking-widest mb-3">
-                Edições Extras
-              </p>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="mt-10">
+              <div className="flex items-center gap-3 mb-5">
+                <h3 className="text-sm font-bold text-[#1351B4] uppercase tracking-wider">
+                  Edições Extras
+                </h3>
+                <div className="h-px bg-gray-200 flex-1" />
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 {extras.map((e) => <EditionCard key={e.id} edition={e} />)}
               </div>
             </div>

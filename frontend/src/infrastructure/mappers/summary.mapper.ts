@@ -5,6 +5,8 @@ export function toAISummary(dto: AISummaryDTO): AISummary {
   return {
     id: dto.id,
     editionId: dto.edition_id,
+    editionNumber: dto.edition_number,
+    editionTitle: dto.edition_title,
     model: dto.model,
     summary: dto.summary,
     pagesRead: dto.pages_read,

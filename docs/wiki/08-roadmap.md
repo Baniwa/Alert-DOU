@@ -70,36 +70,24 @@ A arquitetura é projetada para suportar essa expansão: novos scrapers são ape
 
 ---
 
-### ⏳ Fase 4 — AI Summaries (Gemini Pro)
+### ✅ Fase 4 — AI Summaries (Gemini Flash)
 
 **Objetivo:** Gerar resumos executivos de edições por seção usando IA.
 
-**Critérios de conclusão:**
-- [ ] Endpoint `GET /editions/{id}/summary` retorna resumo gerado
-- [ ] Prompt especializado por seção (normativos, pessoal, contratos)
-- [ ] Resumo armazenado na tabela `ai_summaries` (cache)
-- [ ] Não chama Gemini se resumo já existe no banco
-- [ ] Testes: mock do Gemini client, teste do use case
+**Concluído:**
+- `GeminiClient` em `ai/client.py` usando `google-genai` SDK
+- Modelo: `gemini-3.5-flash` (custo/performance otimizado)
+- Detecção automática de seção pelo título da edição (`_detect_section`)
+- Prompts especializados por seção em `ai/prompts/section{1,2,3}.txt`
+- Endpoint `GET /editions/{id}/summary` com cache automático no banco
+- Endpoint `GET /summaries/` para histórico de todos os resumos gerados
+- Tabela `ai_summaries` com `UNIQUE (edition_id)` — sem reprocessamento desnecessário
+- Re-scrape automático quando link do PDF expira
 
-**Decisões técnicas pendentes:**
-- Gemini 1.5 Pro vs Gemini 2.0 Flash (custo × qualidade)
-- Summarização por edição completa ou por artigo individual
-- Idioma do resumo: PT-BR (natural para o domínio)
-
-**Estrutura esperada:**
-```
-infrastructure/
-└── ai/
-    ├── gemini_client.py
-    └── prompts/
-        ├── section1_summary.txt
-        ├── section2_summary.txt
-        └── section3_summary.txt
-
-application/
-└── use_cases/
-    └── summarize_edition.py
-```
+**Dívida técnica:**
+- Sem testes unitários (mock do GeminiClient)
+- Sem controle de tokens por requisição
+- Sem versioning de prompts
 
 ---
 
@@ -118,53 +106,64 @@ application/
 
 ---
 
-### ⏳ Fase 6 — Docker Completo
+### ✅ Fase 6 — Docker Completo
 
 **Objetivo:** Setup completo do ambiente com um único comando.
 
-**Critérios de conclusão:**
-- [ ] `Dockerfile` para a API
-- [ ] `Dockerfile` para o scraper/worker
-- [ ] `docker-compose.yml` inclui todos os serviços (api, worker, postgres, redis)
-- [ ] `docker-compose up` inicia tudo sem configuração adicional
-- [ ] Variáveis de ambiente documentadas em `.env.example`
-- [ ] Health checks nos serviços
+**Concluído:**
+- `Dockerfile` multi-stage com `python:3.12-slim`, usuário não-root (`appuser`)
+- `docker-compose.yml` com 4 serviços: `api`, `worker`, `db` (PostgreSQL 16.3), `redis` (7)
+- Health checks nos serviços `db` e `redis`
+- `entrypoint.sh`: executa `alembic upgrade head` antes de subir o Uvicorn
+- `.dockerignore` excluindo `.venv`, `__pycache__`, `.env`
+- `docker compose up --build` inicia tudo
+
+**Dívida técnica:**
+- Credenciais padrão hardcoded em `docker-compose.yml` (`alertdou:alertdou`) — sempre sobrescrever via `.env` em produção
+- Sem `.env.example` no repositório para guiar novos contribuidores
 
 ---
 
-### ⏳ Fase 7 — Celery + Redis (Worker Automático)
+### ✅ Fase 7 — Worker Automático (schedule)
 
-**Objetivo:** Scraping e processamento executados automaticamente, sem intervenção manual.
+**Objetivo:** Scraping executado automaticamente sem intervenção manual.
 
-**Critérios de conclusão:**
-- [ ] Celery Beat agenda scraping diário às 06:00 BRT (dias úteis)
-- [ ] Task `scheduled_scrape` coleta e persiste edições
-- [ ] Task `summarize_edition` enfileirada após cada nova edição
-- [ ] Task `check_name_alerts` enfileirada após indexação de artigos
-- [ ] Monitoramento: Flower (dashboard Celery) em `/flower`
-- [ ] Retry automático com backoff exponencial (tenacity)
-- [ ] Testes: task enfileirada, task executada, idempotência garantida
+**Concluído:**
+- `workers/scheduler.py` usando biblioteca `schedule`
+- Executa `fetch_dou_today()` + `save_editions()` diariamente às 08:00
+- Roda uma vez na inicialização do container para cobrir edições do dia atual
+- Containerizado como serviço `worker` no `docker-compose.yml`
+
+**Dívida técnica:**
+- Scheduler simples (não usa Celery): crash do container = scraping perdido até restart
+- Sem retry automático em falha do scraper
+- Sem Flower (dashboard de tarefas)
+- Considerar migrar para Celery Beat na Fase 9 se a confiabilidade se tornar crítica
 
 ---
 
-### ⏳ Fase 8 — Frontend (React + Tailwind)
+### ✅ Fase 8 — Frontend (React + TypeScript)
 
-**Objetivo:** Interface web para consulta de edições, resumos IA e gerenciamento de alertas.
+**Objetivo:** Interface web para consulta de edições e resumos IA.
 
-**Critérios de conclusão:**
-- [ ] Dashboard: edições mais recentes com link para PDF
-- [ ] Resumos IA exibidos por seção
-- [ ] Tela de alertas: cadastrar/remover/visualizar ocorrências
-- [ ] Dark mode
-- [ ] Responsivo (mobile-first)
-- [ ] Autenticação JWT (login, registro, logout)
-- [ ] Deploy independente (Vercel ou Netlify)
+**Concluído:**
+- React 19 + TypeScript + Tailwind CSS + Vite
+- Clean Architecture + DDD no frontend (`domain/`, `application/`, `infrastructure/`, `presentation/`)
+- Identidade visual baseada no **design system gov.br** (azul `#1351B4`, verde `#168821`)
+- **HomePage**: navegação por dia útil, seletor de data, grid de seções, banner de publicação
+- **EditionDetailPage**: layout two-column, metadados + PDF link + painel de resumo IA
+- **SummariesPage**: histórico de todos os resumos gerados, agrupados por edição
+- **SummaryPanel**: estados idle/loading/error/display, renderização de Markdown com `react-markdown`
+- **AppLayout**: sidebar gov.br com ícone institucional (Landmark), top bar decorativa
+- **EditionCard**: cards com cores por seção, hover animations
+- TanStack Query: `staleTime: Infinity` para resumos (imutáveis após geração)
+- Rate limit 503 tratado no frontend com mensagem específica sobre API key
 
-**Stack:**
-- React 18+ com TypeScript
-- Tailwind CSS
-- TanStack Query (react-query) para gerenciamento de estado de servidor
-- Vite como bundler
+**Dívida técnica:**
+- Sem Error Boundary global (erro em componente pode derrubar a app)
+- Sem testes de componentes (Vitest + Testing Library)
+- Sem i18n (interface em PT-BR hardcoded)
+- Páginas "Alertas" e "Documentação" marcadas como "Em breve"
 
 ---
 
@@ -186,16 +185,22 @@ application/
 
 ## Dívida Técnica Consolidada
 
-| Item | Impacto | Fase para Resolver |
-|------|---------|-------------------|
-| Alembic não configurado | Alto — risco em produção | Fase 6 |
-| Sem testes (unitários / integração) | Alto — regressões não detectadas | Fase 4 |
-| Sem paginação na API | Médio — crescerá com o volume | Fase 4 |
-| Scraper síncrono | Médio — bloqueia em execução | Fase 7 |
-| Sem retry no scraper | Médio — falha silenciosa | Fase 7 |
-| Redis não utilizado | Baixo — já provisionado | Fase 7 |
-| Sem rate limiting | Baixo (MVP local) | Fase 9 |
-| Sem autenticação | Baixo (dados públicos) | Fase 8 |
+| Item | Impacto | Status |
+|------|---------|--------|
+| ~~Alembic não configurado~~ | ~~Alto — risco em produção~~ | ✅ Resolvido (Fase 6) |
+| ~~`create_tables()` no lifespan~~ | ~~Alto — conflito com Alembic~~ | ✅ Resolvido (Fase 6) |
+| ~~Sem rate limiting~~ | ~~Médio — Denial-of-Wallet~~ | ✅ Resolvido (Fase 4) |
+| ~~CORS headers com `*`~~ | ~~Baixo (segurança)~~ | ✅ Resolvido (Fase 4) |
+| ~~Sem Docker completo~~ | ~~Alto — ambiente inconsistente~~ | ✅ Resolvido (Fase 6) |
+| ~~Sem worker automático~~ | ~~Alto — scraping manual~~ | ✅ Resolvido (Fase 7) |
+| Sem testes (unitários / integração) | Alto — regressões não detectadas | Fase 9 |
+| Sem paginação na API | Médio — crescerá com o volume | Fase 9 |
+| Scraper síncrono | Médio — bloqueia thread | Fase 9 |
+| Sem retry no scraper | Médio — falha silenciosa | Fase 9 |
+| Redis não utilizado para cache | Baixo — já provisionado | Fase 9 |
+| Sem autenticação | Baixo (dados públicos) | Fase 8+ |
+| Sem Error Boundary no frontend | Médio — UX degradada em erro | Fase 9 |
+| Sem `.env.example` | Baixo — onboarding | Pendente |
 
 ---
 

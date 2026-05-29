@@ -17,6 +17,8 @@ class EditionOut(BaseModel):
 class SummaryOut(BaseModel):
     id: int
     edition_id: int
+    edition_number: str | None = None
+    edition_title: str | None = None
     model: str
     summary: str
     pages_read: int

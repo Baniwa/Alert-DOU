@@ -1,0 +1,68 @@
+site_name: Alert DOU
+site_description: Sistema de Monitoramento Inteligente do Diário Oficial da União
+site_author: Giulia Gabriela
+docs_dir: docs/wiki
+site_dir: site
+
+theme:
+  name: material
+  custom_dir: overrides
+  language: pt-BR
+  palette:
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: custom
+      accent: custom
+      toggle:
+        icon: material/brightness-4
+        name: Modo claro
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: custom
+      accent: custom
+      toggle:
+        icon: material/brightness-7
+        name: Modo escuro
+  font:
+    text: Roboto
+    code: Roboto Mono
+  icon:
+    logo: material/book-open-page-variant
+    repo: fontawesome/brands/github
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.top
+    - navigation.indexes
+    - search.suggest
+    - search.highlight
+    - content.code.copy
+    - announce.dismiss
+
+repo_url: https://github.com/Baniwa/Alert-DOU
+repo_name: Baniwa/Alert-DOU
+
+extra:
+  generator: false
+
+extra_css:
+  - stylesheets/extra.css
+
+plugins:
+  - search:
+      lang: pt
+
+nav:
+  - Início: index.md
+  - Arquitetura:
+      - Proposta Arquitetural (ADR-001): 01-architecture-proposal.md
+      - Modelo de Domínio: 02-domain-model.md
+  - Sistema:
+      - Componentes: 03-components.md
+      - Engenharia do Scraper: 05-scraper-engineering.md
+      - Banco de Dados: 06-database.md
+  - API:
+      - Referência REST: 04-api-reference.md
+  - Contribuição:
+      - Guia de Desenvolvimento: 07-development-guide.md
+      - Roadmap: 08-roadmap.md

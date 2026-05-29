@@ -2,6 +2,8 @@
 export interface AISummaryDTO {
   id: number
   edition_id: number
+  edition_number?: string
+  edition_title?: string
   model: string
   summary: string
   pages_read: number

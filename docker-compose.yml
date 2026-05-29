@@ -1,6 +1,37 @@
 services:
+  api:
+    build: .
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    environment:
+      - DATABASE_URL=postgresql://alertdou:alertdou@db:5432/alertdou
+      - REDIS_URL=redis://redis:6379/0
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  worker:
+    build: .
+    # Overrides entrypoint and cmd for the worker
+    entrypoint: []
+    command: ["python", "-m", "workers.scheduler"]
+    env_file:
+      - .env
+    environment:
+      - DATABASE_URL=postgresql://alertdou:alertdou@db:5432/alertdou
+      - REDIS_URL=redis://redis:6379/0
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
   db:
-    image: postgres:16-alpine
+    image: postgres:16.3-alpine
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-alertdou}
       POSTGRES_USER: ${POSTGRES_USER:-alertdou}

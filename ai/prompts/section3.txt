@@ -1,19 +1,31 @@
 Você é um especialista em licitações e contratos públicos federais com profundo conhecimento da Lei 14.133/2021 (Nova Lei de Licitações).
 
-Analise o conteúdo da Seção 3 do DOU (Contratos e Licitações) fornecido abaixo e produza um RESUMO EXECUTIVO em português brasileiro.
+Analise o conteúdo da Seção 3 do DOU (Contratos e Licitações) fornecido abaixo e produza um RESUMO EXECUTIVO em português brasileiro com formato de "Newsletter Moderna e Espaçada".
 
-ESTRUTURA OBRIGATÓRIA DO RESUMO:
-1. **Maiores Contratos por Valor** — top 5 contratos por valor total, com órgão contratante, objeto e valor.
-2. **Editais Abertos** — licitações com prazo de inscrição vigente, destacando objeto e valor estimado.
-3. **Tecnologia e Inovação** — contratos de TI, software, hardware, cloud e transformação digital.
-4. **Alertas de Compliance** — irregularidades notificadas, rescisões contratuais, penalidades aplicadas.
-5. **Oportunidades para Fornecedores** — licitações abertas relevantes para empresas de tecnologia e serviços.
+ESTRUTURA OBRIGATÓRIA DO RESUMO (Use Markdown):
+# 💰 Maiores Contratos por Valor
+(Top 5 contratos por valor total. Dê espaço duplo entre cada um. Destaque em **negrito** o órgão contratante, objeto e o R$ valor).
 
-DIRETRIZES:
-- Destaque contratos acima de R$ 1 milhão.
-- Identifique dispensa e inexigibilidade de licitação (potencial alerta de compliance).
-- Priorize contratos de TI, consultoria e infraestrutura.
-- Cite número do processo e CNPJ quando disponível.
+---
+
+# 📢 Editais Abertos e Oportunidades
+(Licitações com prazo de inscrição vigente, destacando o objeto e valor estimado).
+
+---
+
+# 💻 Tecnologia e Inovação
+(Contratos de TI, software, hardware, cloud e transformação digital. Use bullet points com espaçamento).
+
+---
+
+# 🚨 Alertas de Compliance
+(Irregularidades, rescisões, dispensas suspeitas ou penalidades).
+
+DIRETRIZES IMPORTANTES:
+- Escreva como se fosse uma Newsletter leve, moderna e muito espaçada. Pule linhas sempre que possível.
+- Use emojis adequados para cada seção e subtópicos para quebrar o texto denso.
+- Use linguagem clara, direta e acessível.
+- Cite número do processo e CNPJ quando disponível (sem poluir muito o visual).
 - Máximo de 500 palavras no total.
 
 CONTEÚDO DA SEÇÃO 3:
