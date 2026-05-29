@@ -1,4 +1,5 @@
-import { isWeekend, subDays } from 'date-fns'
+import { format, isWeekend, subDays } from 'date-fns'
+import { ptBR } from 'date-fns/locale'
 import { useState } from 'react'
 import { useEditions } from '../../../application/hooks/useEditions'
 import { Section } from '../../../domain/value-objects/Section'
@@ -22,63 +23,80 @@ export function HomePage() {
     .filter(Boolean)
 
   const extras = editions?.filter((e) => e.section === Section.EXTRA) ?? []
+  const totalPages = editions?.reduce((sum, e) => sum + e.pageCount, 0) ?? 0
 
   return (
     <div>
-      {/* Page header */}
-      <div className="mb-8">
-        <h2 className="text-2xl font-bold text-[#071D41] dark:text-white mb-1">
-          Edições do DOU
-        </h2>
-        <p className="text-sm text-gray-500 dark:text-gray-400 mb-5">
-          Selecione uma data para visualizar as edições publicadas.
-        </p>
+      {/* Toolbar */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8 pb-5 border-b border-white/8">
+        <div>
+          <p className="text-[11px] font-semibold text-[#C9A84C] uppercase tracking-[0.15em] mb-1">
+            Diário Oficial da União
+          </p>
+          <h2 className="text-2xl font-extrabold text-white leading-tight">
+            {format(date, "EEEE',' dd 'de' MMMM 'de' yyyy", { locale: ptBR })}
+          </h2>
+        </div>
         <DatePicker value={date} onChange={setDate} />
       </div>
 
-      {/* Loading state */}
-      {isLoading && (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {[1, 2, 3].map((i) => (
-            <div key={i} className="h-44 bg-gray-100 dark:bg-[#0F1C2E] rounded-lg animate-pulse" />
+      {/* Stats bar */}
+      {!isLoading && editions && editions.length > 0 && (
+        <div className="grid grid-cols-3 gap-3 mb-8">
+          {[
+            { label: 'Seções publicadas', value: ordered.length },
+            { label: 'Total de páginas', value: totalPages.toLocaleString('pt-BR') },
+            { label: 'Edição nº', value: editions[0].editionNumber },
+          ].map((stat) => (
+            <div key={stat.label} className="bg-[#0A1628] border border-white/8 rounded-xl px-4 py-3">
+              <p className="text-[10px] text-gray-500 uppercase tracking-wider mb-0.5">{stat.label}</p>
+              <p className="text-xl font-bold text-white">{stat.value}</p>
+            </div>
           ))}
         </div>
       )}
 
-      {/* Error state */}
-      {isError && (
-        <div className="border border-red-200 dark:border-red-900/50 rounded-lg p-6 bg-red-50 dark:bg-red-950/20 text-center">
-          <p className="text-sm font-semibold text-red-700 dark:text-red-400 mb-1">
-            Não foi possível carregar as edições
-          </p>
-          <p className="text-xs text-red-500">Verifique se a API está rodando em {import.meta.env.VITE_API_URL ?? 'http://localhost:8002'}</p>
+      {/* Loading */}
+      {isLoading && (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {[1, 2, 3].map((i) => (
+            <div key={i} className="h-52 bg-[#0A1628] rounded-xl animate-pulse border border-white/5" />
+          ))}
         </div>
       )}
 
-      {/* Empty state */}
+      {/* Error */}
+      {isError && (
+        <div className="rounded-xl border border-red-900/40 bg-red-950/20 p-8 text-center">
+          <p className="text-2xl mb-2">⚠️</p>
+          <p className="text-sm font-semibold text-red-400 mb-1">Não foi possível conectar à API</p>
+          <p className="text-xs text-red-600">{import.meta.env.VITE_API_URL ?? 'http://localhost:8002'}</p>
+        </div>
+      )}
+
+      {/* Empty */}
       {!isLoading && !isError && ordered.length === 0 && (
-        <div className="border border-dashed border-gray-300 dark:border-white/10 rounded-lg p-12 text-center">
-          <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">
-            Nenhuma edição encontrada para esta data.
-          </p>
-          <p className="text-xs text-gray-400">
-            O DOU é publicado apenas em dias úteis. Execute o scraper para coletar edições.
-          </p>
+        <div className="rounded-xl border border-dashed border-white/10 p-16 text-center">
+          <p className="text-4xl mb-4">📋</p>
+          <p className="text-sm font-semibold text-gray-400 mb-1">Nenhuma edição coletada para esta data</p>
+          <p className="text-xs text-gray-600">O DOU é publicado apenas em dias úteis.</p>
         </div>
       )}
 
       {/* Edition grid */}
       {!isLoading && ordered.length > 0 && (
         <>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
             {ordered.map((edition) => edition && (
               <EditionCard key={edition.id} edition={edition} />
             ))}
           </div>
 
-          {extras.length > 1 && (
-            <div className="mt-4">
-              <p className="text-xs text-gray-500 uppercase tracking-wider mb-2">Edições Extras</p>
+          {extras.length > 0 && (
+            <div className="mt-6">
+              <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-widest mb-3">
+                Edições Extras
+              </p>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 {extras.map((e) => <EditionCard key={e.id} edition={e} />)}
               </div>

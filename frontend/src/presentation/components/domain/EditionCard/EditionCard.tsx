@@ -2,44 +2,96 @@ import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { Link } from 'react-router-dom'
 import type { Edition } from '../../../../domain/entities/Edition'
-import { SECTION_DESCRIPTIONS } from '../../../../domain/value-objects/Section'
-import { SectionBadge } from '../SectionBadge/SectionBadge'
+import { Section, SECTION_DESCRIPTIONS, SECTION_LABELS } from '../../../../domain/value-objects/Section'
+
+const SECTION_ACCENT: Record<Section, { bar: string; glow: string; badge: string; icon: string }> = {
+  [Section.SECTION_1]: {
+    bar: 'bg-[#1351B4]',
+    glow: 'hover:shadow-[0_0_24px_-4px_rgba(19,81,180,0.45)]',
+    badge: 'bg-[#1351B4]/20 text-[#5B9BD5] border border-[#1351B4]/30',
+    icon: '⚖️',
+  },
+  [Section.SECTION_2]: {
+    bar: 'bg-[#C9A84C]',
+    glow: 'hover:shadow-[0_0_24px_-4px_rgba(201,168,76,0.4)]',
+    badge: 'bg-[#C9A84C]/15 text-[#C9A84C] border border-[#C9A84C]/30',
+    icon: '👤',
+  },
+  [Section.SECTION_3]: {
+    bar: 'bg-[#168821]',
+    glow: 'hover:shadow-[0_0_24px_-4px_rgba(22,136,33,0.4)]',
+    badge: 'bg-[#168821]/15 text-[#4CAF50] border border-[#168821]/30',
+    icon: '📄',
+  },
+  [Section.EXTRA]: {
+    bar: 'bg-[#C9A84C]',
+    glow: 'hover:shadow-[0_0_24px_-4px_rgba(201,168,76,0.3)]',
+    badge: 'bg-[#C9A84C]/10 text-[#C9A84C] border border-[#C9A84C]/20',
+    icon: '📢',
+  },
+}
 
 interface Props {
   edition: Edition
 }
 
 export function EditionCard({ edition }: Props) {
+  const accent = SECTION_ACCENT[edition.section]
+  const label = SECTION_LABELS[edition.section].split('—')[0].trim()
+  const description = SECTION_DESCRIPTIONS[edition.section]
+
   return (
     <Link
       to={`/editions/${edition.id}`}
-      className="block group bg-white dark:bg-[#0F1C2E] border border-gray-200 dark:border-[#1351B4]/20 rounded-lg overflow-hidden shadow-sm hover:shadow-md hover:border-[#C9A84C]/60 transition-all duration-200"
+      className={`group relative flex flex-col bg-[#0A1628] border border-white/8 rounded-xl overflow-hidden transition-all duration-300 ${accent.glow} hover:border-white/20 hover:-translate-y-0.5`}
     >
-      <div className="p-5">
-        <div className="flex items-start justify-between gap-3 mb-3">
-          <SectionBadge section={edition.section} />
-          <span className="text-xs text-gray-500 dark:text-gray-400 shrink-0">
-            Edição nº {edition.editionNumber}
+      {/* Top accent bar */}
+      <div className={`h-0.5 w-full ${accent.bar}`} />
+
+      <div className="flex flex-col flex-1 p-5">
+        {/* Header row */}
+        <div className="flex items-center justify-between mb-4">
+          <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-bold tracking-wide uppercase ${accent.badge}`}>
+            <span>{accent.icon}</span>
+            {label}
+          </span>
+          <span className="text-[11px] text-gray-600 font-mono">
+            Nº {edition.editionNumber}
           </span>
         </div>
 
-        <h3 className="text-sm font-semibold text-[#071D41] dark:text-white mb-1 leading-snug group-hover:text-[#C9A84C] transition-colors">
+        {/* Title */}
+        <h3 className="text-[15px] font-bold text-white leading-snug mb-2 group-hover:text-[#C9A84C] transition-colors duration-200">
           {edition.title}
         </h3>
 
-        <p className="text-xs text-gray-500 dark:text-gray-400 mb-4 leading-relaxed">
-          {SECTION_DESCRIPTIONS[edition.section]}
+        {/* Description */}
+        <p className="text-[12px] text-gray-500 leading-relaxed flex-1 mb-5">
+          {description}
         </p>
 
-        <div className="flex items-center justify-between text-xs text-gray-400 dark:text-gray-500 border-t border-gray-100 dark:border-white/5 pt-3">
-          <span>
-            {format(edition.pubDate, "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}
-          </span>
-          <span>{edition.pageCount} páginas</span>
+        {/* Footer */}
+        <div className="flex items-end justify-between pt-3 border-t border-white/6">
+          <div>
+            <p className="text-[10px] text-gray-600 uppercase tracking-wider mb-0.5">Publicado em</p>
+            <p className="text-[13px] font-semibold text-gray-300">
+              {format(edition.pubDate, "dd/MM/yyyy", { locale: ptBR })}
+            </p>
+          </div>
+          <div className="text-right">
+            <p className="text-[10px] text-gray-600 uppercase tracking-wider mb-0.5">Páginas</p>
+            <p className="text-[13px] font-semibold text-gray-300">
+              {edition.pageCount.toLocaleString('pt-BR')}
+            </p>
+          </div>
         </div>
       </div>
 
-      <div className="h-0.5 w-full bg-gradient-to-r from-[#071D41] via-[#1351B4] to-[#C9A84C] opacity-0 group-hover:opacity-100 transition-opacity" />
+      {/* Bottom arrow indicator */}
+      <div className="px-5 pb-4 flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+        <span className="text-[11px] text-[#C9A84C] font-semibold">Ver detalhes</span>
+        <span className="text-[#C9A84C] text-sm">→</span>
+      </div>
     </Link>
   )
 }

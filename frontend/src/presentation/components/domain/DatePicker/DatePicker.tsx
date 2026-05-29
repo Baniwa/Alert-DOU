@@ -1,5 +1,5 @@
-import { format, subDays, addDays, isWeekend } from 'date-fns'
-import { ptBR } from 'date-fns/locale'
+import { addDays, format, isWeekend } from 'date-fns'
+import { subDays } from 'date-fns'
 
 interface Props {
   value: Date
@@ -18,17 +18,15 @@ function nextWorkday(d: Date): Date {
   return next
 }
 
+const BTN = "w-8 h-8 flex items-center justify-center rounded-lg border border-white/10 text-gray-400 hover:border-[#C9A84C]/50 hover:text-[#C9A84C] transition-all duration-150 text-base disabled:opacity-25 disabled:cursor-not-allowed select-none"
+
 export function DatePicker({ value, onChange }: Props) {
   const today = new Date()
   const isToday = format(value, 'yyyy-MM-dd') === format(today, 'yyyy-MM-dd')
 
   return (
     <div className="flex items-center gap-2">
-      <button
-        onClick={() => onChange(prevWorkday(value))}
-        className="p-2 rounded-lg border border-gray-200 dark:border-white/10 hover:border-[#C9A84C]/60 hover:text-[#C9A84C] transition-colors text-gray-500 dark:text-gray-400"
-        aria-label="Dia útil anterior"
-      >
+      <button onClick={() => onChange(prevWorkday(value))} className={BTN} aria-label="Dia anterior">
         ‹
       </button>
 
@@ -37,21 +35,17 @@ export function DatePicker({ value, onChange }: Props) {
         value={format(value, 'yyyy-MM-dd')}
         max={format(today, 'yyyy-MM-dd')}
         onChange={(e) => e.target.value && onChange(new Date(e.target.value + 'T00:00:00'))}
-        className="px-3 py-2 text-sm bg-white dark:bg-[#0F1C2E] border border-gray-200 dark:border-white/10 rounded-lg text-[#071D41] dark:text-white focus:outline-none focus:border-[#C9A84C] transition-colors"
+        className="h-8 px-3 text-[13px] font-medium bg-[#0A1628] border border-white/10 rounded-lg text-white focus:outline-none focus:border-[#C9A84C]/60 transition-colors cursor-pointer"
       />
 
       <button
         onClick={() => onChange(nextWorkday(value))}
         disabled={isToday}
-        className="p-2 rounded-lg border border-gray-200 dark:border-white/10 hover:border-[#C9A84C]/60 hover:text-[#C9A84C] transition-colors text-gray-500 dark:text-gray-400 disabled:opacity-30 disabled:cursor-not-allowed"
-        aria-label="Próximo dia útil"
+        className={BTN}
+        aria-label="Próximo dia"
       >
         ›
       </button>
-
-      <span className="text-sm text-gray-500 dark:text-gray-400 hidden sm:block">
-        {format(value, "EEEE, dd 'de' MMMM", { locale: ptBR })}
-      </span>
     </div>
   )
 }
