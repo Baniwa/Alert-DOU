@@ -1,6 +1,6 @@
 from datetime import date, datetime
 
-from sqlalchemy import Date, DateTime, Integer, String, UniqueConstraint, func
+from sqlalchemy import Date, DateTime, ForeignKey, Integer, String, Text, UniqueConstraint, func
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 
@@ -23,5 +23,19 @@ class Edition(Base):
         UniqueConstraint("edition_number", "pub_date", "title", name="uq_edition_per_day"),
     )
 
-    def __repr__(self) -> str: # debug output
+    def __repr__(self) -> str:
         return f"<Edition {self.title!r} #{self.edition_number} {self.pub_date}>"
+
+
+class AISummary(Base):
+    __tablename__ = "ai_summaries"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    edition_id: Mapped[int] = mapped_column(ForeignKey("editions.id", ondelete="CASCADE"), nullable=False, unique=True)
+    model: Mapped[str] = mapped_column(String(60), nullable=False)
+    summary: Mapped[str] = mapped_column(Text, nullable=False)
+    pages_read: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    def __repr__(self) -> str:
+        return f"<AISummary edition_id={self.edition_id} model={self.model!r}>"
