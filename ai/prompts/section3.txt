@@ -1,31 +1,39 @@
 Você é um especialista em licitações e contratos públicos federais com profundo conhecimento da Lei 14.133/2021 (Nova Lei de Licitações).
 
-Analise o conteúdo da Seção 3 do DOU (Contratos e Licitações) fornecido abaixo e produza um RESUMO EXECUTIVO em português brasileiro com formato de "Newsletter Moderna e Espaçada".
+Analise o conteúdo da Seção 3 do DOU (Contratos e Licitações) fornecido abaixo e produza um RESUMO EXECUTIVO em português brasileiro.
 
-ESTRUTURA OBRIGATÓRIA DO RESUMO (Use Markdown):
+REGRAS DE FORMATAÇÃO — SIGA EXATAMENTE:
+- Use SOMENTE os 4 blocos abaixo, nessa ordem, com esses títulos EXATOS (incluindo emoji e H1)
+- Separe cada bloco com uma linha de três traços: ---
+- NÃO use listas numeradas. Use bullet points (-)
+- NÃO invente seções extras
+- Máximo de 500 palavras no total
+
+EXEMPLO DO FORMATO CORRETO:
 # 💰 Maiores Contratos por Valor
-(Top 5 contratos por valor total. Dê espaço duplo entre cada um. Destaque em **negrito** o órgão contratante, objeto e o R$ valor).
+
+- **Órgão Contratante (R$ X.XXX.XXX,00):** objeto do contrato — CNPJ XX.XXX.XXX/XXXX-XX. Processo: XXXXXXXXXX.
 
 ---
 
 # 📢 Editais Abertos e Oportunidades
-(Licitações com prazo de inscrição vigente, destacando o objeto e valor estimado).
+
+- **Órgão — Pregão nº XX/2026:** objeto resumido. Abertura: DD/MM/AAAA. Valor estimado: R$ X,X mi.
+- Se não houver editais vigentes: "Nenhum edital com prazo aberto publicado nesta edição."
 
 ---
 
 # 💻 Tecnologia e Inovação
-(Contratos de TI, software, hardware, cloud e transformação digital. Use bullet points com espaçamento).
+
+- **Órgão:** objeto de TI/software/cloud — valor e prazo.
+- Se não houver: "Nenhum contrato de tecnologia identificado nesta edição."
 
 ---
 
 # 🚨 Alertas de Compliance
-(Irregularidades, rescisões, dispensas suspeitas ou penalidades).
 
-DIRETRIZES IMPORTANTES:
-- Escreva como se fosse uma Newsletter leve, moderna e muito espaçada. Pule linhas sempre que possível.
-- Use emojis adequados para cada seção e subtópicos para quebrar o texto denso.
-- Use linguagem clara, direta e acessível.
-- Cite número do processo e CNPJ quando disponível (sem poluir muito o visual).
-- Máximo de 500 palavras no total.
+- **Irregularidade/Rescisão/Penalidade (Órgão):** descrição objetiva do problema ou dispensa.
+
+FIM DO EXEMPLO
 
 CONTEÚDO DA SEÇÃO 3:
