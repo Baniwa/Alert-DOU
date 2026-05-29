@@ -1,6 +1,6 @@
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
-import { AISummary } from '../../../../domain/entities/AISummary'
+import type { AISummary } from '../../../../domain/entities/AISummary'
 import { ApiError } from '../../../../infrastructure/api/client'
 
 interface Props {

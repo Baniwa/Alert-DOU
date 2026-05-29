@@ -1,11 +1,11 @@
 import { format } from 'date-fns'
-import { Edition } from '../../domain/entities/Edition'
-import { AISummary } from '../../domain/entities/AISummary'
+import type { Edition } from '../../domain/entities/Edition'
+import type { AISummary } from '../../domain/entities/AISummary'
 import { toEdition, toEditionList } from '../mappers/edition.mapper'
 import { toAISummary } from '../mappers/summary.mapper'
 import { apiClient } from './client'
-import { EditionDTO } from './dto/EditionDTO'
-import { AISummaryDTO } from './dto/AISummaryDTO'
+import type { EditionDTO } from './dto/EditionDTO'
+import type { AISummaryDTO } from './dto/AISummaryDTO'
 
 export async function fetchEditions(pubDate?: Date): Promise<Edition[]> {
   const params = pubDate ? { pub_date: format(pubDate, 'yyyy-MM-dd') } : {}

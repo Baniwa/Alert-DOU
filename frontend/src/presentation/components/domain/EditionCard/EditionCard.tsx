@@ -1,7 +1,7 @@
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { Link } from 'react-router-dom'
-import { Edition } from '../../../../domain/entities/Edition'
+import type { Edition } from '../../../../domain/entities/Edition'
 import { SECTION_DESCRIPTIONS } from '../../../../domain/value-objects/Section'
 import { SectionBadge } from '../SectionBadge/SectionBadge'
 

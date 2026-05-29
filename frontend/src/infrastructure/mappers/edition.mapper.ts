@@ -1,6 +1,6 @@
-import { Edition } from '../../domain/entities/Edition'
+import type { Edition } from '../../domain/entities/Edition'
 import { detectSection } from '../../domain/value-objects/Section'
-import { EditionDTO } from '../api/dto/EditionDTO'
+import type { EditionDTO } from '../api/dto/EditionDTO'
 
 /** Anti-Corruption Layer: transforms the API's snake_case DTO into a domain-rich Edition entity.
  *  String dates become Date objects. Section is derived from the title. */

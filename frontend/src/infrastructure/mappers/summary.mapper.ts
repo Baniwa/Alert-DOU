@@ -1,5 +1,5 @@
-import { AISummary } from '../../domain/entities/AISummary'
-import { AISummaryDTO } from '../api/dto/AISummaryDTO'
+import type { AISummary } from '../../domain/entities/AISummary'
+import type { AISummaryDTO } from '../api/dto/AISummaryDTO'
 
 export function toAISummary(dto: AISummaryDTO): AISummary {
   return {

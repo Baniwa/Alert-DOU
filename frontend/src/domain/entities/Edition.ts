@@ -1,4 +1,4 @@
-import { Section } from '../value-objects/Section'
+import type { Section } from '../value-objects/Section'
 
 export interface Edition {
   readonly id: number
