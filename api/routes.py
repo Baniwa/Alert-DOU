@@ -2,7 +2,6 @@ import logging
 from datetime import date
 from fastapi import APIRouter, HTTPException, Query, Request
 from sqlalchemy import select
-from sqlalchemy.orm import joinedload
 from api.schemas import EditionOut, SummaryOut
 from database import Edition, get_session
 from database.models import AISummary
@@ -19,6 +18,13 @@ summary_router = APIRouter(prefix="/summaries", tags=["summaries"])
 def list_summaries():
     with get_session() as session:
         stmt = select(AISummary).order_by(AISummary.created_at.desc())
+        return session.scalars(stmt).all()
+
+
+@router.get("/dates", response_model=list[date])
+def list_edition_dates():
+    with get_session() as session:
+        stmt = select(Edition.pub_date).distinct().order_by(Edition.pub_date.desc())
         return session.scalars(stmt).all()
 
 

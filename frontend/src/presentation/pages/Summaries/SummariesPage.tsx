@@ -74,7 +74,9 @@ export function SummariesPage() {
 
       {!isLoading && summaries && summaries.length > 0 && (
         <div className="space-y-10">
-          {Object.entries(groupedSummaries).map(([editionNumber, editionSummaries]) => (
+          {Object.entries(groupedSummaries)
+            .sort(([a], [b]) => Number(b) - Number(a))
+            .map(([editionNumber, editionSummaries]) => (
             <div key={editionNumber} className="bg-white border border-gray-200 rounded-2xl p-6 shadow-sm">
               <h2 className="text-lg font-extrabold text-gray-900 mb-6 flex items-center gap-2 border-b border-gray-100 pb-3">
                 EDIÇÃO Nº {editionNumber}

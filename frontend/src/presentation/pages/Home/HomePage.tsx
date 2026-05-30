@@ -1,10 +1,12 @@
 import { format, isWeekend, subDays } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
-import { ChevronLeft, ChevronRight, FileText, Layers } from 'lucide-react'
-import { useState } from 'react'
+import { Calendar, ChevronLeft, ChevronRight, FileText, Layers } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { useEditions } from '../../../application/hooks/useEditions'
 import { Section } from '../../../domain/value-objects/Section'
 import { EditionCard } from '../../components/domain/EditionCard/EditionCard'
+import { fetchAvailableDates } from '../../../infrastructure/api/editions.api'
 
 function lastWorkday(): Date {
   let d = new Date()
@@ -29,9 +31,29 @@ const SECTION_ORDER = [Section.SECTION_1, Section.SECTION_2, Section.SECTION_3, 
 
 export function HomePage() {
   const [date, setDate] = useState<Date>(lastWorkday)
+  const [showDates, setShowDates] = useState(false)
+  const datesRef = useRef<HTMLDivElement>(null)
+
   const { data: editions, isLoading, isError } = useEditions(date)
+  const { data: availableDates } = useQuery({
+    queryKey: ['edition-dates'],
+    queryFn: fetchAvailableDates,
+    staleTime: 5 * 60 * 1000,
+  })
+
   const today = lastWorkday()
   const isToday = format(date, 'yyyy-MM-dd') === format(today, 'yyyy-MM-dd')
+
+  // Close dropdown on outside click
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (datesRef.current && !datesRef.current.contains(e.target as Node)) {
+        setShowDates(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [])
 
   const ordered = SECTION_ORDER
     .map((s) => editions?.find((e) => e.section === s))
@@ -54,7 +76,7 @@ export function HomePage() {
           </h1>
 
           {/* Date nav */}
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-1.5 flex-wrap">
             <button
               onClick={() => setDate(prevWorkday(date))}
               className="w-9 h-9 flex items-center justify-center rounded-lg border border-gray-300 bg-white text-gray-600 hover:border-[#1351B4] hover:text-[#1351B4] hover:shadow-sm transition-all"
@@ -77,6 +99,48 @@ export function HomePage() {
             >
               <ChevronRight size={16} />
             </button>
+
+            {/* Available dates dropdown */}
+            <div className="relative" ref={datesRef}>
+              <button
+                onClick={() => setShowDates((v) => !v)}
+                className="h-9 px-3 flex items-center gap-1.5 text-[12px] font-semibold rounded-lg border border-gray-300 bg-white text-gray-600 hover:border-[#1351B4] hover:text-[#1351B4] hover:shadow-sm transition-all"
+              >
+                <Calendar size={14} />
+                Datas com publicações
+              </button>
+
+              {showDates && (
+                <div className="absolute right-0 top-11 z-50 w-64 bg-white border border-gray-200 rounded-xl shadow-lg overflow-hidden">
+                  <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider px-4 pt-3 pb-2">
+                    {availableDates?.length ?? 0} datas no banco
+                  </p>
+                  <ul className="max-h-72 overflow-y-auto divide-y divide-gray-100">
+                    {availableDates?.map((d) => {
+                      const key = format(d, 'yyyy-MM-dd')
+                      const isSelected = key === format(date, 'yyyy-MM-dd')
+                      return (
+                        <li key={key}>
+                          <button
+                            onClick={() => { setDate(d); setShowDates(false) }}
+                            className={`w-full text-left px-4 py-2.5 text-[13px] font-medium transition-colors ${
+                              isSelected
+                                ? 'bg-[#1351B4]/10 text-[#1351B4] font-bold'
+                                : 'text-gray-700 hover:bg-gray-50'
+                            }`}
+                          >
+                            {format(d, "EEEE, dd 'de' MMM 'de' yyyy", { locale: ptBR })}
+                          </button>
+                        </li>
+                      )
+                    })}
+                    {!availableDates?.length && (
+                      <li className="px-4 py-4 text-[13px] text-gray-400 text-center">Nenhuma data encontrada</li>
+                    )}
+                  </ul>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>
@@ -116,7 +180,7 @@ export function HomePage() {
         <div className="rounded-xl border border-red-200 bg-red-50 p-10 text-center mb-8 shadow-sm">
           <p className="text-3xl mb-4 text-red-500">⚠️</p>
           <p className="text-[15px] font-bold text-red-800 mb-1">Não foi possível conectar ao servidor Gov.br</p>
-          <p className="text-xs text-red-600 font-mono bg-red-100 inline-block px-2 py-1 rounded mt-2">{import.meta.env.VITE_API_URL ?? 'http://localhost:8002'}</p>
+          <p className="text-xs text-red-600 font-mono bg-red-100 inline-block px-2 py-1 rounded mt-2">{import.meta.env.VITE_API_URL ?? 'http://localhost:8000'}</p>
         </div>
       )}
 

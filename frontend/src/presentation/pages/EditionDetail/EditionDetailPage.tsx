@@ -2,7 +2,7 @@ import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { ArrowLeft, ExternalLink, FileText } from 'lucide-react'
 import { useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
 import { fetchEditionById } from '../../../infrastructure/api/editions.api'
 import { editionKeys } from '../../../application/query-keys/editions.keys'
@@ -12,6 +12,7 @@ import { SummaryPanel } from '../../components/domain/SummaryPanel/SummaryPanel'
 
 export function EditionDetailPage() {
   const { id } = useParams<{ id: string }>()
+  const navigate = useNavigate()
   const editionId = Number(id)
   const [summaryEnabled, setSummaryEnabled] = useState(false)
 
@@ -43,14 +44,14 @@ export function EditionDetailPage() {
 
   return (
     <div className="max-w-7xl mx-auto w-full">
-      {/* Back */}
-      <Link
-        to="/"
+      {/* Back — goes to previous page so date state is preserved */}
+      <button
+        onClick={() => navigate(-1)}
         className="inline-flex items-center gap-1.5 text-[13px] font-medium text-gray-500 hover:text-[#1351B4] transition-colors mb-6"
       >
         <ArrowLeft size={14} />
         Voltar para edições
-      </Link>
+      </button>
 
       <div className="flex flex-col gap-8 items-stretch">
         {/* Top: Info */}

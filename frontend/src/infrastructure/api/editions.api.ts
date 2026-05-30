@@ -23,3 +23,8 @@ export async function fetchEditionSummary(editionId: number): Promise<AISummary>
   const { data } = await apiClient.get<AISummaryDTO>(`/editions/${editionId}/summary`, { timeout: 90_000 })
   return toAISummary(data)
 }
+
+export async function fetchAvailableDates(): Promise<Date[]> {
+  const { data } = await apiClient.get<string[]>('/editions/dates')
+  return data.map((d) => new Date(d + 'T00:00:00'))
+}
