@@ -40,17 +40,20 @@ export function SummaryPanel({ summary, isLoading, isError, error, onGenerate }:
 
   if (isError) {
     const is503 = apiError?.status === 503
+    const is502 = apiError?.status === 502
     return (
       <div className="border border-red-200 rounded-lg p-6 bg-red-50 shadow-sm">
         <h3 className="text-sm font-bold text-red-700 mb-2">
-          {is503 ? 'Chave de API não configurada' : 'Erro ao gerar resumo'}
+          {is503 ? 'Chave de API não configurada' : is502 ? 'PDF indisponível' : 'Erro ao gerar resumo'}
         </h3>
         <p className="text-xs font-medium text-red-600 mb-4">
           {is503
             ? 'Adicione GEMINI_API_KEY ao arquivo .env e reinicie a API.'
+            : is502
+            ? 'O PDF desta edição está temporariamente indisponível na Imprensa Nacional. Edições extras e antigas podem exigir acesso direto ao portal in.gov.br.'
             : (apiError?.message ?? 'Erro desconhecido. Tente novamente.')}
         </p>
-        {!is503 && (
+        {!is503 && !is502 && (
           <button
             onClick={onGenerate}
             className="text-xs px-3 py-1.5 font-bold bg-red-100 text-red-700 rounded hover:bg-red-200 transition-colors"
