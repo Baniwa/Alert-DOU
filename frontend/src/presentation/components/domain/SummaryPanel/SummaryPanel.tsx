@@ -32,7 +32,7 @@ export function SummaryPanel({ summary, isLoading, isError, error, onGenerate }:
           ))}
         </div>
         <p className="mt-5 text-xs text-gray-500 font-medium">
-          Baixando PDF e gerando resumo com inteligência artificial — pode levar até 30 segundos.
+          Baixando PDF e gerando resumo com inteligência artificial — pode levar até 90 segundos.
         </p>
       </div>
     )

@@ -19,6 +19,7 @@ export async function fetchEditionById(id: number): Promise<Edition> {
 }
 
 export async function fetchEditionSummary(editionId: number): Promise<AISummary> {
-  const { data } = await apiClient.get<AISummaryDTO>(`/editions/${editionId}/summary`)
+  // Re-scrape + PDF download + AI generation can take up to ~60s for older editions
+  const { data } = await apiClient.get<AISummaryDTO>(`/editions/${editionId}/summary`, { timeout: 90_000 })
   return toAISummary(data)
 }
