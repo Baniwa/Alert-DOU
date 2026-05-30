@@ -3,6 +3,7 @@ import { ptBR } from 'date-fns/locale'
 import { Calendar, ChevronLeft, ChevronRight, FileText, Layers } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
+import { useSearchParams } from 'react-router-dom'
 import { useEditions } from '../../../application/hooks/useEditions'
 import { Section } from '../../../domain/value-objects/Section'
 import { EditionCard } from '../../components/domain/EditionCard/EditionCard'
@@ -30,9 +31,17 @@ function nextWorkday(d: Date): Date {
 const SECTION_ORDER = [Section.SECTION_1, Section.SECTION_2, Section.SECTION_3, Section.EXTRA]
 
 export function HomePage() {
-  const [date, setDate] = useState<Date>(lastWorkday)
+  const [searchParams, setSearchParams] = useSearchParams()
   const [showDates, setShowDates] = useState(false)
   const datesRef = useRef<HTMLDivElement>(null)
+
+  // Date lives in the URL (?date=YYYY-MM-DD) so browser back/forward preserves it
+  const date = (() => {
+    const p = searchParams.get('date')
+    return p ? new Date(p + 'T00:00:00') : lastWorkday()
+  })()
+
+  const setDate = (d: Date) => setSearchParams({ date: format(d, 'yyyy-MM-dd') }, { replace: false })
 
   const { data: editions, isLoading, isError } = useEditions(date)
   const { data: availableDates } = useQuery({
