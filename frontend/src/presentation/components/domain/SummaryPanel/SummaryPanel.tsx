@@ -92,7 +92,7 @@ export function SummaryPanel({ summary, isLoading, isError, error, onGenerate }:
         </div>
       </div>
       <div className="p-8">
-        <div className="prose prose-sm max-w-none text-gray-800 prose-headings:text-[#1351B4] prose-h1:text-xl prose-h1:font-extrabold prose-p:mb-5 prose-li:mb-3 prose-ul:mt-2 prose-hr:my-8 prose-hr:border-gray-200">
+        <div className="prose max-w-none prose-headings:text-[#1351B4] prose-headings:font-extrabold prose-h1:text-2xl prose-h1:mt-6 prose-h1:mb-3 prose-h2:text-lg prose-h3:text-base prose-p:text-gray-700 prose-li:text-gray-700 prose-li:mb-2 prose-strong:text-gray-900 prose-hr:border-gray-200 prose-hr:my-6">
           <ReactMarkdown remarkPlugins={[remarkGfm]}>
             {summary.summary}
           </ReactMarkdown>
