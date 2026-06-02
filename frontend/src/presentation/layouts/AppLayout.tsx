@@ -1,11 +1,12 @@
-import { BookOpen, Bell, LayoutDashboard, Sparkles, ExternalLink, Landmark, Radar } from 'lucide-react'
+import { BookOpen, Bell, LayoutDashboard, Sparkles, ExternalLink, Landmark, Radar, Newspaper } from 'lucide-react'
 import { NavLink, Outlet } from 'react-router-dom'
 
 const NAV = [
-  { to: '/', icon: Radar, label: 'Radar' },
+  { to: '/', icon: Newspaper, label: 'Jornal do Dia' },
   { to: '/editions', icon: LayoutDashboard, label: 'Edições' },
   { to: '/summaries', icon: Sparkles, label: 'Resumos IA' },
-  { to: '/alerts', icon: Bell, label: 'Alertas', soon: true },
+  { to: '/radar', icon: Radar, label: 'Radar' },
+  { to: '/alerts', icon: Bell, label: 'Name Tracker' },
   { to: '/docs', icon: BookOpen, label: 'Documentação', soon: true },
 ]
 
