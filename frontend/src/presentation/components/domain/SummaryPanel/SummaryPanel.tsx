@@ -1,5 +1,7 @@
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
+import { Check, Download, Share2 } from 'lucide-react'
+import { useState } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import type { AISummary } from '../../../../domain/entities/AISummary'
@@ -16,6 +18,24 @@ interface Props {
 
 export function SummaryPanel({ summary, isLoading, isError, error, onGenerate }: Props) {
   const apiError = error instanceof ApiError ? error : null
+  const [copied, setCopied] = useState(false)
+
+  function handleShare() {
+    navigator.clipboard.writeText(window.location.href)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
+
+  function handleDownload() {
+    if (!summary) return
+    const blob = new Blob([summary.summary], { type: 'text/plain;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `resumo-dou-edicao-${summary.editionId}.txt`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
 
   if (isLoading) {
     return (
@@ -84,9 +104,25 @@ export function SummaryPanel({ summary, isLoading, isError, error, onGenerate }:
   return (
       <div className="border border-gray-200 rounded-xl overflow-hidden shadow-sm bg-white">
       <div className="flex items-center justify-between px-5 py-3 bg-gray-50 border-b border-gray-200">
-        <span className="text-xs font-extrabold text-[#1351B4] uppercase tracking-wider">
-          Resumo Executivo — IA
-        </span>
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-extrabold text-[#1351B4] uppercase tracking-wider">
+            Resumo Executivo — IA
+          </span>
+          <button
+            onClick={handleShare}
+            title="Copiar link"
+            className="w-7 h-7 flex items-center justify-center rounded text-gray-400 hover:text-[#1351B4] hover:bg-gray-100 transition-colors"
+          >
+            {copied ? <Check size={14} /> : <Share2 size={14} />}
+          </button>
+          <button
+            onClick={handleDownload}
+            title="Baixar resumo"
+            className="w-7 h-7 flex items-center justify-center rounded text-gray-400 hover:text-[#1351B4] hover:bg-gray-100 transition-colors"
+          >
+            <Download size={14} />
+          </button>
+        </div>
         <div className="flex items-center gap-3">
           <span className="text-[11px] font-medium text-gray-500 bg-gray-200 px-2 py-0.5 rounded">{summary.model}</span>
           <span className="text-[11px] font-medium text-gray-500">

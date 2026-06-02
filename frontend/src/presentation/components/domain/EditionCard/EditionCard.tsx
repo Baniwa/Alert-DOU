@@ -102,6 +102,9 @@ export function EditionCard({ edition }: Props) {
             <span>{format(edition.pubDate, 'dd/MM/yyyy', { locale: ptBR })}</span>
             <span className="w-px h-3 bg-gray-300" />
             <span>{edition.pageCount.toLocaleString('pt-BR')} pág.</span>
+            {format(new Date(), 'yyyy-MM-dd') === format(edition.pubDate, 'yyyy-MM-dd') && (
+              <span className="text-[10px] font-bold text-white bg-[#168821] px-2 py-0.5 rounded-full">Hoje</span>
+            )}
           </div>
           <ArrowRight
             size={14}
