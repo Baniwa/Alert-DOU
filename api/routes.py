@@ -59,7 +59,8 @@ def list_summaries(request: Request, limit: int = Query(default=100, le=500), of
 
 
 @router.get("/dates", response_model=list[date])
-def list_edition_dates():
+@limiter.limit("30/minute")
+def list_edition_dates(request: Request):
     with get_session() as session:
         stmt = select(Edition.pub_date).distinct().order_by(Edition.pub_date.desc())
         return session.scalars(stmt).all()
@@ -76,7 +77,8 @@ def list_editions(request: Request, pub_date: date | None = Query(default=None),
 
 
 @router.get("/{edition_id}", response_model=EditionOut)
-def get_edition(edition_id: int):
+@limiter.limit("60/minute")
+def get_edition(edition_id: int, request: Request):
     with get_session() as session:
         edition = session.get(Edition, edition_id)
         if not edition:
