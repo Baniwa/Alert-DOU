@@ -6,7 +6,7 @@ services:
     env_file:
       - .env
     environment:
-      - DATABASE_URL=postgresql://alertdou:alertdou@db:5432/alertdou
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-alertdou}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@db:5432/${POSTGRES_DB:-alertdou}
       - REDIS_URL=redis://redis:6379/0
     depends_on:
       db:
@@ -22,7 +22,7 @@ services:
     env_file:
       - .env
     environment:
-      - DATABASE_URL=postgresql://alertdou:alertdou@db:5432/alertdou
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-alertdou}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@db:5432/${POSTGRES_DB:-alertdou}
       - REDIS_URL=redis://redis:6379/0
     depends_on:
       db:

@@ -20,8 +20,20 @@ _HEADERS = {
 }
 
 
+_ALLOWED_HOSTS = {"www.in.gov.br", "in.gov.br", "pesquisa.in.gov.br"}
+
+def _validate_pdf_url(url: str) -> None:
+    from urllib.parse import urlparse
+    parsed = urlparse(url)
+    if parsed.scheme not in ("http", "https"):
+        raise ValueError(f"PDF URL scheme not allowed: {parsed.scheme!r}")
+    if parsed.hostname not in _ALLOWED_HOSTS:
+        raise ValueError(f"PDF URL host not allowed: {parsed.hostname!r}")
+
+
 def _download_pdf(pdf_url: str) -> bytes:
     """Download PDF using curl_cffi to match the DOU server's WAF requirements."""
+    _validate_pdf_url(pdf_url)
     with requests.Session(impersonate="chrome", timeout=_REQUEST_TIMEOUT) as client:
         response = client.get(pdf_url, headers=_HEADERS)
 

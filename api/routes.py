@@ -15,9 +15,10 @@ router = APIRouter(prefix="/editions", tags=["editions"])
 summary_router = APIRouter(prefix="/summaries", tags=["summaries"])
 
 @summary_router.get("/", response_model=list[SummaryOut])
-def list_summaries():
+@limiter.limit("60/minute")
+def list_summaries(request: Request, limit: int = Query(default=100, le=500), offset: int = Query(default=0, ge=0)):
     with get_session() as session:
-        stmt = select(AISummary).order_by(AISummary.created_at.desc())
+        stmt = select(AISummary).order_by(AISummary.created_at.desc()).limit(limit).offset(offset)
         return session.scalars(stmt).all()
 
 
@@ -29,9 +30,10 @@ def list_edition_dates():
 
 
 @router.get("/", response_model=list[EditionOut])
-def list_editions(pub_date: date | None = Query(default=None)):
+@limiter.limit("60/minute")
+def list_editions(request: Request, pub_date: date | None = Query(default=None), limit: int = Query(default=100, le=500), offset: int = Query(default=0, ge=0)):
     with get_session() as session:
-        stmt = select(Edition).order_by(Edition.pub_date.desc())
+        stmt = select(Edition).order_by(Edition.pub_date.desc()).limit(limit).offset(offset)
         if pub_date:
             stmt = stmt.where(Edition.pub_date == pub_date)
         return session.scalars(stmt).all()
