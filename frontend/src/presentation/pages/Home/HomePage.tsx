@@ -1,216 +1,232 @@
-import { format, isWeekend, subDays } from 'date-fns'
+import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
-import { Calendar, ChevronLeft, ChevronRight, FileText, Layers } from 'lucide-react'
-import { useEffect, useRef, useState } from 'react'
+import { ArrowRight, FileText, Plus, Radar, Search, X } from 'lucide-react'
+import { useMemo, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { useSearchParams } from 'react-router-dom'
-import { useEditions } from '../../../application/hooks/useEditions'
-import { Section } from '../../../domain/value-objects/Section'
-import { EditionCard } from '../../components/domain/EditionCard/EditionCard'
-import { fetchAvailableDates } from '../../../infrastructure/api/editions.api'
+import type { AISummary } from '../../../domain/entities/AISummary'
+import { apiClient } from '../../../infrastructure/api/client'
+import { toAISummary } from '../../../infrastructure/mappers/summary.mapper'
+import type { AISummaryDTO } from '../../../infrastructure/api/dto/AISummaryDTO'
 
-function lastWorkday(): Date {
-  let d = new Date()
-  while (isWeekend(d)) d = subDays(d, 1)
-  return d
+const STORAGE_KEY = 'alert-dou:tracked-concursos'
+
+function loadConcursos(): string[] {
+  try {
+    return JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '[]')
+  } catch {
+    return []
+  }
 }
 
-function prevWorkday(d: Date): Date {
-  let prev = subDays(d, 1)
-  while (isWeekend(prev)) prev = subDays(prev, 1)
-  return prev
+function saveConcursos(list: string[]) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(list))
 }
 
-function nextWorkday(d: Date): Date {
-  const next = new Date(d)
-  next.setDate(next.getDate() + 1)
-  while (isWeekend(next)) next.setDate(next.getDate() + 1)
-  return next
+const fetchSummaries = async (): Promise<AISummary[]> => {
+  const { data } = await apiClient.get<AISummaryDTO[]>('/summaries')
+  return data.map(toAISummary)
 }
 
-const SECTION_ORDER = [Section.SECTION_1, Section.SECTION_2, Section.SECTION_3, Section.EXTRA]
+function matchedKeywords(summary: AISummary, keywords: string[]): string[] {
+  const text = `${summary.editionTitle ?? ''} ${summary.summary}`.toLowerCase()
+  return keywords.filter((kw) => text.includes(kw.toLowerCase()))
+}
 
 export function HomePage() {
-  const [searchParams, setSearchParams] = useSearchParams()
-  const [showDates, setShowDates] = useState(false)
-  const datesRef = useRef<HTMLDivElement>(null)
+  const [concursos, setConcursos] = useState<string[]>(loadConcursos)
+  const [input, setInput] = useState('')
 
-  // Date lives in the URL (?date=YYYY-MM-DD) so browser back/forward preserves it
-  const date = (() => {
-    const p = searchParams.get('date')
-    return p ? new Date(p + 'T00:00:00') : lastWorkday()
-  })()
-
-  const setDate = (d: Date) => setSearchParams({ date: format(d, 'yyyy-MM-dd') }, { replace: false })
-
-  const { data: editions, isLoading, isError } = useEditions(date)
-  const { data: availableDates } = useQuery({
-    queryKey: ['edition-dates'],
-    queryFn: fetchAvailableDates,
-    staleTime: 5 * 60 * 1000,
+  const { data: summaries, isLoading } = useQuery({
+    queryKey: ['summaries'],
+    queryFn: fetchSummaries,
+    enabled: concursos.length > 0,
   })
 
-  const today = lastWorkday()
-  const isToday = format(date, 'yyyy-MM-dd') === format(today, 'yyyy-MM-dd')
+  function add() {
+    const kw = input.trim()
+    if (!kw || concursos.includes(kw)) return
+    const updated = [...concursos, kw]
+    setConcursos(updated)
+    saveConcursos(updated)
+    setInput('')
+  }
 
-  // Close dropdown on outside click
-  useEffect(() => {
-    function handleClick(e: MouseEvent) {
-      if (datesRef.current && !datesRef.current.contains(e.target as Node)) {
-        setShowDates(false)
-      }
-    }
-    document.addEventListener('mousedown', handleClick)
-    return () => document.removeEventListener('mousedown', handleClick)
-  }, [])
+  function remove(kw: string) {
+    const updated = concursos.filter((c) => c !== kw)
+    setConcursos(updated)
+    saveConcursos(updated)
+  }
 
-  const ordered = SECTION_ORDER
-    .map((s) => editions?.find((e) => e.section === s))
-    .filter(Boolean)
-
-  const extras = editions?.filter((e) => e.section === Section.EXTRA) ?? []
-  const totalPages = editions?.reduce((sum, e) => sum + e.pageCount, 0) ?? 0
+  const matches = useMemo(() => {
+    if (!summaries || concursos.length === 0) return []
+    return summaries
+      .map((s) => ({ summary: s, matched: matchedKeywords(s, concursos) }))
+      .filter(({ matched }) => matched.length > 0)
+      .sort((a, b) => b.summary.createdAt.getTime() - a.summary.createdAt.getTime())
+  }, [summaries, concursos])
 
   return (
-    <div className="w-full">
+    <div className="max-w-4xl w-full mx-auto">
 
-      {/* ── Page heading ── */}
+      {/* Header */}
       <div className="mb-8 border-b border-gray-200 pb-6">
-        <p className="text-[11px] font-bold text-[#1351B4] uppercase tracking-[0.15em] mb-2">
-          Diário Oficial da União
+        <p className="text-[11px] font-bold text-[#1351B4] uppercase tracking-[0.15em] mb-2 flex items-center gap-2">
+          <Radar size={12} />
+          Monitoramento Inteligente
         </p>
-        <div className="flex items-center justify-between gap-4 flex-wrap">
-          <h1 className="text-2xl font-extrabold text-gray-900 leading-tight">
-            {format(date, "EEEE',' dd 'de' MMMM 'de' yyyy", { locale: ptBR })}
-          </h1>
+        <h1 className="text-2xl font-extrabold text-gray-900 leading-tight">
+          Radar de Concursos Públicos
+        </h1>
+        <p className="text-sm text-gray-600 mt-2 max-w-2xl leading-relaxed">
+          Cadastre os concursos que você acompanha. O sistema identifica automaticamente publicações relevantes nos resumos do DOU e traz os resultados aqui.
+        </p>
+      </div>
 
-          {/* Date nav */}
-          <div className="flex items-center gap-1.5 flex-wrap">
-            <button
-              onClick={() => setDate(prevWorkday(date))}
-              className="w-9 h-9 flex items-center justify-center rounded-lg border border-gray-300 bg-white text-gray-600 hover:border-[#1351B4] hover:text-[#1351B4] hover:shadow-sm transition-all"
-            >
-              <ChevronLeft size={16} />
-            </button>
-
-            <input
-              type="date"
-              value={format(date, 'yyyy-MM-dd')}
-              max={format(today, 'yyyy-MM-dd')}
-              onChange={(e) => e.target.value && setDate(new Date(e.target.value + 'T00:00:00'))}
-              className="h-9 px-3 text-[13px] font-semibold bg-white border border-gray-300 rounded-lg text-gray-800 focus:outline-none focus:border-[#1351B4] focus:ring-1 focus:ring-[#1351B4] transition-colors cursor-pointer"
-            />
-
-            <button
-              onClick={() => setDate(nextWorkday(date))}
-              disabled={isToday}
-              className="w-9 h-9 flex items-center justify-center rounded-lg border border-gray-300 bg-white text-gray-600 hover:border-[#1351B4] hover:text-[#1351B4] hover:shadow-sm transition-all disabled:opacity-40 disabled:cursor-not-allowed"
-            >
-              <ChevronRight size={16} />
-            </button>
-
-            {/* Available dates dropdown */}
-            <div className="relative" ref={datesRef}>
-              <button
-                onClick={() => setShowDates((v) => !v)}
-                className="h-9 px-3 flex items-center gap-1.5 text-[12px] font-semibold rounded-lg border border-gray-300 bg-white text-gray-600 hover:border-[#1351B4] hover:text-[#1351B4] hover:shadow-sm transition-all"
-              >
-                <Calendar size={14} />
-                Datas com publicações
-              </button>
-
-              {showDates && (
-                <div className="absolute right-0 top-11 z-50 w-64 bg-white border border-gray-200 rounded-xl shadow-lg overflow-hidden">
-                  <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider px-4 pt-3 pb-2">
-                    {availableDates?.length ?? 0} datas no banco
-                  </p>
-                  <ul className="max-h-72 overflow-y-auto divide-y divide-gray-100">
-                    {availableDates?.map((d) => {
-                      const key = format(d, 'yyyy-MM-dd')
-                      const isSelected = key === format(date, 'yyyy-MM-dd')
-                      return (
-                        <li key={key}>
-                          <button
-                            onClick={() => { setDate(d); setShowDates(false) }}
-                            className={`w-full text-left px-4 py-2.5 text-[13px] font-medium transition-colors ${
-                              isSelected
-                                ? 'bg-[#1351B4]/10 text-[#1351B4] font-bold'
-                                : 'text-gray-700 hover:bg-gray-50'
-                            }`}
-                          >
-                            {format(d, "EEEE, dd 'de' MMM 'de' yyyy", { locale: ptBR })}
-                          </button>
-                        </li>
-                      )
-                    })}
-                    {!availableDates?.length && (
-                      <li className="px-4 py-4 text-[13px] text-gray-400 text-center">Nenhuma data encontrada</li>
-                    )}
-                  </ul>
-                </div>
-              )}
-            </div>
-          </div>
+      {/* Input */}
+      <div className="mb-6">
+        <label className="block text-[11px] font-bold text-gray-600 uppercase tracking-wider mb-2">
+          Monitorar concurso
+        </label>
+        <div className="flex gap-2">
+          <input
+            type="text"
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && add()}
+            placeholder='Ex: "INSS", "Receita Federal", "TRF", "Polícia Federal"'
+            className="flex-1 h-10 px-4 text-[13px] bg-white border border-gray-300 rounded-lg focus:outline-none focus:border-[#1351B4] focus:ring-1 focus:ring-[#1351B4] transition-colors"
+          />
+          <button
+            onClick={add}
+            disabled={!input.trim()}
+            className="h-10 px-4 flex items-center gap-2 text-[12px] font-bold bg-[#1351B4] hover:bg-[#0c326f] text-white rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed shadow-sm"
+          >
+            <Plus size={14} />
+            Monitorar
+          </button>
         </div>
       </div>
 
-      {/* ── Newsletter Header ── */}
-      {!isLoading && !isError && (
-        <div className={`mb-8 p-5 rounded-xl border shadow-sm ${ordered.length > 0 ? 'bg-[#168821]/5 border-[#168821]/20' : 'bg-gray-50 border-gray-200'}`}>
-          <div className="flex items-start gap-4">
-            <div className={`w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0 ${ordered.length > 0 ? 'bg-[#168821] text-white shadow-sm' : 'bg-gray-200 text-gray-500'}`}>
-              {ordered.length > 0 ? <FileText size={20} /> : <Layers size={20} />}
-            </div>
-            <div>
-              <h2 className={`text-lg font-bold mb-1 ${ordered.length > 0 ? 'text-[#168821]' : 'text-gray-700'}`}>
-                {ordered.length > 0 ? 'Publicações de hoje já disponíveis! 📰' : 'Nenhuma publicação neste dia.'}
-              </h2>
-              <p className="text-[13px] text-gray-600 leading-relaxed max-w-3xl">
-                {ordered.length > 0 
-                  ? `Foram publicadas ${ordered.length} seções oficiais e ${extras.length} edições extras. O documento completo contém ${totalPages.toLocaleString('pt-BR')} páginas sob a edição de número ${editions?.[0]?.editionNumber}.` 
-                  : 'O Diário Oficial da União não registrou publicações nesta data. Geralmente isso ocorre em finais de semana ou feriados nacionais.'}
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ── Loading ── */}
-      {isLoading && (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-8">
-          {[1, 2, 3].map((i) => (
-            <div key={i} className="h-56 bg-white rounded-xl shadow-sm border border-gray-200 animate-pulse" />
+      {/* Tracked keywords */}
+      {concursos.length > 0 && (
+        <div className="flex flex-wrap gap-2 mb-8">
+          {concursos.map((kw) => (
+            <span
+              key={kw}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#1351B4]/10 text-[#1351B4] text-[12px] font-bold rounded-lg border border-[#1351B4]/20"
+            >
+              <Search size={11} />
+              {kw}
+              <button
+                onClick={() => remove(kw)}
+                className="ml-1 hover:text-red-500 transition-colors"
+                title={`Remover ${kw}`}
+              >
+                <X size={12} />
+              </button>
+            </span>
           ))}
         </div>
       )}
 
-      {/* ── Error ── */}
-      {isError && (
-        <div className="rounded-xl border border-red-200 bg-red-50 p-10 text-center mb-8 shadow-sm">
-          <p className="text-3xl mb-4 text-red-500">⚠️</p>
-          <p className="text-[15px] font-bold text-red-800 mb-1">Não foi possível conectar ao servidor Gov.br</p>
-          <p className="text-xs text-red-600 font-mono bg-red-100 inline-block px-2 py-1 rounded mt-2">{import.meta.env.VITE_API_URL ?? 'http://localhost:8000'}</p>
+      {/* Empty state — no concursos registered */}
+      {concursos.length === 0 && (
+        <div className="rounded-xl border border-dashed border-gray-300 bg-gray-50 p-16 text-center">
+          <div className="text-4xl mb-4">🎯</div>
+          <p className="text-[15px] font-bold text-gray-700 mb-2">Nenhum concurso monitorado</p>
+          <p className="text-sm text-gray-500 max-w-sm mx-auto">
+            Adicione palavras-chave acima para que o sistema busque publicações relevantes nos resumos gerados pelo DOU.
+          </p>
         </div>
       )}
 
-      {/* ── Editions grid ── */}
-      {!isLoading && ordered.length > 0 && (
+      {/* Results section */}
+      {concursos.length > 0 && (
         <>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {ordered.map((ed) => ed && <EditionCard key={ed.id} edition={ed} />)}
+          <div className="flex items-center gap-3 mb-5">
+            <h2 className="text-sm font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap">
+              {isLoading
+                ? 'Buscando publicações...'
+                : matches.length > 0
+                ? `${matches.length} publicaç${matches.length > 1 ? 'ões' : 'ão'} encontrada${matches.length > 1 ? 's' : ''}`
+                : 'Sem publicações encontradas'}
+            </h2>
+            <div className="h-px bg-gray-200 flex-1" />
           </div>
 
-          {extras.length > 0 && (
-            <div className="mt-10">
-              <div className="flex items-center gap-3 mb-5">
-                <h3 className="text-sm font-bold text-[#1351B4] uppercase tracking-wider">
-                  Edições Extras
-                </h3>
-                <div className="h-px bg-gray-200 flex-1" />
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                {extras.map((e) => <EditionCard key={e.id} edition={e} />)}
-              </div>
+          {isLoading && (
+            <div className="space-y-4">
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="h-32 bg-white rounded-xl border border-gray-200 animate-pulse" />
+              ))}
+            </div>
+          )}
+
+          {!isLoading && matches.length === 0 && (
+            <div className="rounded-xl border border-dashed border-gray-300 bg-gray-50 p-10 text-center">
+              <p className="text-gray-500 text-sm mb-1">
+                Nenhum resumo disponível menciona os concursos monitorados.
+              </p>
+              <p className="text-gray-400 text-xs mb-4">
+                Os resumos são gerados a partir das edições do DOU. Acesse uma edição e clique em "Gerar Resumo com IA".
+              </p>
+              <Link
+                to="/editions"
+                className="inline-flex items-center gap-1.5 text-[12px] font-bold text-[#1351B4] hover:text-[#168821] transition-colors"
+              >
+                Ver edições do DOU
+                <ArrowRight size={13} />
+              </Link>
+            </div>
+          )}
+
+          {!isLoading && matches.length > 0 && (
+            <div className="space-y-4">
+              {matches.map(({ summary, matched }) => (
+                <div
+                  key={summary.id}
+                  className="bg-white border border-gray-200 rounded-xl p-5 shadow-sm hover:shadow-md transition-all hover:-translate-y-0.5 hover:border-gray-300"
+                >
+                  <div className="flex items-start justify-between gap-4 mb-3">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-8 h-8 rounded-lg bg-[#1351B4]/10 flex items-center justify-center flex-shrink-0">
+                        <FileText size={15} className="text-[#1351B4]" />
+                      </div>
+                      <div>
+                        <p className="text-[12px] font-bold text-gray-800 uppercase tracking-wider leading-none">
+                          {summary.editionTitle ?? 'DOU'}
+                        </p>
+                        <p className="text-[11px] text-gray-500 mt-0.5">
+                          {format(summary.createdAt, "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex flex-wrap gap-1 justify-end flex-shrink-0">
+                      {matched.map((kw) => (
+                        <span
+                          key={kw}
+                          className="text-[10px] font-bold px-2 py-0.5 bg-[#168821]/10 text-[#168821] rounded-full border border-[#168821]/20"
+                        >
+                          {kw}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+
+                  <p className="text-[13px] text-gray-600 leading-relaxed line-clamp-3 mb-4">
+                    {summary.summary.replace(/[*#]/g, '')}
+                  </p>
+
+                  <Link
+                    to={`/editions/${summary.editionId}`}
+                    className="inline-flex items-center gap-1.5 text-[12px] font-bold text-[#1351B4] hover:text-[#168821] transition-colors"
+                  >
+                    Ler resumo completo
+                    <ArrowRight size={13} />
+                  </Link>
+                </div>
+              ))}
             </div>
           )}
         </>
