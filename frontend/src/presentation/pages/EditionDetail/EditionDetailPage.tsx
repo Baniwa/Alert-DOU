@@ -3,18 +3,27 @@ import { ptBR } from 'date-fns/locale'
 import { ArrowLeft, ExternalLink, FileText } from 'lucide-react'
 import { useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { fetchEditionById } from '../../../infrastructure/api/editions.api'
 import { editionKeys } from '../../../application/query-keys/editions.keys'
 import { useEditionSummary } from '../../../application/hooks/useEditionSummary'
 import { SECTION_LABELS } from '../../../domain/value-objects/Section'
 import { SummaryPanel } from '../../components/domain/SummaryPanel/SummaryPanel'
+import type { AISummary } from '../../../domain/entities/AISummary'
 
 export function EditionDetailPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const editionId = Number(id)
-  const [summaryEnabled, setSummaryEnabled] = useState(false)
+  const queryClient = useQueryClient()
+
+  // If the summary already exists in the global cache (fetched by home/summaries pages),
+  // enable the query immediately — no need for the user to click "Gerar".
+  const alreadyCached = queryClient
+    .getQueryData<AISummary[]>(['summaries'])
+    ?.some((s) => s.editionId === editionId) ?? false
+
+  const [summaryEnabled, setSummaryEnabled] = useState(alreadyCached)
 
   const { data: edition, isLoading, isError } = useQuery({
     queryKey: editionKeys.detail(editionId),

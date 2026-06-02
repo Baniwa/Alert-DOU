@@ -139,13 +139,20 @@ function SectionColumn({ section, edition, existingSummary }: SectionColumnProps
         )}
 
         {isError && (
-          <div className="text-center py-4">
-            <p className="text-[12px] text-red-600 font-medium mb-3">
+          <div className="py-4">
+            <p className="text-[12px] font-bold text-red-600 mb-1">
               {apiError?.status === 503
                 ? 'Chave Gemini não configurada'
                 : apiError?.status === 502
-                ? 'PDF indisponível na Imprensa Nacional'
+                ? 'Link do PDF expirou'
                 : 'Falha ao gerar resumo'}
+            </p>
+            <p className="text-[11px] text-red-500 leading-relaxed mb-3">
+              {apiError?.status === 503
+                ? 'Configure GEMINI_API_KEY no .env.'
+                : apiError?.status === 502
+                ? 'A edição foi encontrada no DOU, mas o link temporário do PDF expirou. Tente novamente em alguns minutos.'
+                : (apiError?.message ?? 'Erro desconhecido.')}
             </p>
             {apiError?.status !== 503 && (
               <button
