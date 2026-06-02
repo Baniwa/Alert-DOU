@@ -1,4 +1,5 @@
 import logging
+import re
 from datetime import date
 from fastapi import APIRouter, HTTPException, Query, Request
 from sqlalchemy import select
@@ -13,6 +14,41 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/editions", tags=["editions"])
 summary_router = APIRouter(prefix="/summaries", tags=["summaries"])
+
+# Regex para detectar CPF (com ou sem formatação) — usado para redação no log de auditoria
+_CPF_RE = re.compile(r'\b\d{3}[\.\s]?\d{3}[\.\s]?\d{3}[\-\s]?\d{2}\b')
+
+
+@summary_router.get("/search", response_model=list[SummaryOut])
+@limiter.limit("20/minute")
+def search_summaries(
+    request: Request,
+    q: str = Query(..., min_length=2, max_length=100, description="Nome ou CPF a buscar nos resumos"),
+    limit: int = Query(default=20, le=50, ge=1),
+):
+    """Busca por texto nos resumos IA gerados.
+
+    Segurança:
+    - Parâmetro q limitado a 2–100 chars pelo FastAPI/Pydantic antes de chegar aqui
+    - LIKE parametrizado via SQLAlchemy — imune a SQL injection
+    - CPF é redactado no log de auditoria (substitui dígitos por [CPF])
+    - Rate limit: 20 req/min por IP para dificultar enumeração
+    """
+    query = q.strip()
+
+    # Auditoria: redacta CPF antes de logar para não armazenar PII em logs
+    log_query = _CPF_RE.sub("[CPF]", query)
+    logger.info("summary_search ip=%s q=%r", request.client.host, log_query[:50])
+
+    with get_session() as session:
+        stmt = (
+            select(AISummary)
+            .where(AISummary.summary.ilike(f"%{query}%"))
+            .order_by(AISummary.created_at.desc())
+            .limit(limit)
+        )
+        return session.scalars(stmt).all()
+
 
 @summary_router.get("/", response_model=list[SummaryOut])
 @limiter.limit("60/minute")
