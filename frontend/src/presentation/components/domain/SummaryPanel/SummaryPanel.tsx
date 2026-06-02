@@ -1,11 +1,24 @@
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
-import { Check, Download, Share2 } from 'lucide-react'
-import { useState } from 'react'
+import { Check, Download, Share2, Highlighter, Trash2 } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
+import rehypeRaw from 'rehype-raw'
+import rehypeSanitize, { defaultSchema } from 'rehype-sanitize'
+
+// Allow <mark> with our highlight attributes; block everything else not in defaultSchema
+const sanitizeSchema = {
+  ...defaultSchema,
+  tagNames: [...(defaultSchema.tagNames ?? []), 'mark'],
+  attributes: {
+    ...defaultSchema.attributes,
+    mark: ['className', 'dataphrase'],
+  },
+}
 import type { AISummary } from '../../../../domain/entities/AISummary'
 import { ApiError } from '../../../../infrastructure/api/client'
+import { useHighlights, applyHighlightsToMarkdown } from '../../../../application/hooks/useHighlights'
 
 interface Props {
   editionId: number
@@ -16,9 +29,77 @@ interface Props {
   onGenerate: () => void
 }
 
-export function SummaryPanel({ summary, isLoading, isError, error, onGenerate }: Props) {
+interface SelectionToolbar {
+  x: number
+  y: number
+  phrase: string
+}
+
+export function SummaryPanel({ editionId, summary, isLoading, isError, error, onGenerate }: Props) {
   const apiError = error instanceof ApiError ? error : null
   const [copied, setCopied] = useState(false)
+  const [toolbar, setToolbar] = useState<SelectionToolbar | null>(null)
+  const proseRef = useRef<HTMLDivElement>(null)
+  const { phrases, add, remove, clear } = useHighlights(editionId)
+
+  // Detect text selection inside the prose container
+  useEffect(() => {
+    function handleMouseUp(e: MouseEvent) {
+      const selection = window.getSelection()
+      const phrase = selection?.toString().trim() ?? ''
+
+      if (!phrase || phrase.length < 3 || phrase.length > 300) {
+        setToolbar(null)
+        return
+      }
+
+      // Only show toolbar if selection is inside our prose container
+      if (!proseRef.current) return
+      const range = selection!.getRangeAt(0)
+      if (!proseRef.current.contains(range.commonAncestorContainer)) {
+        setToolbar(null)
+        return
+      }
+
+      const rect = range.getBoundingClientRect()
+      const containerRect = proseRef.current.getBoundingClientRect()
+      setToolbar({
+        x: rect.left - containerRect.left + rect.width / 2,
+        y: rect.top - containerRect.top - 8,
+        phrase,
+      })
+    }
+
+    // Click outside prose clears toolbar
+    function handleMouseDown(e: MouseEvent) {
+      if (proseRef.current && !proseRef.current.contains(e.target as Node)) {
+        setToolbar(null)
+      }
+    }
+
+    document.addEventListener('mouseup', handleMouseUp)
+    document.addEventListener('mousedown', handleMouseDown)
+    return () => {
+      document.removeEventListener('mouseup', handleMouseUp)
+      document.removeEventListener('mousedown', handleMouseDown)
+    }
+  }, [])
+
+  // Remove highlight when user clicks on a <mark> element
+  function handleProseClick(e: React.MouseEvent) {
+    const target = e.target as HTMLElement
+    if (target.tagName === 'MARK') {
+      const phrase = target.dataset.phrase
+      if (phrase) remove(phrase)
+    }
+  }
+
+  function handleHighlight() {
+    if (!toolbar) return
+    add(toolbar.phrase)
+    window.getSelection()?.removeAllRanges()
+    setToolbar(null)
+  }
 
   function handleShare() {
     navigator.clipboard.writeText(window.location.href)
@@ -37,6 +118,8 @@ export function SummaryPanel({ summary, isLoading, isError, error, onGenerate }:
     URL.revokeObjectURL(url)
   }
 
+  // ── Loading ──────────────────────────────────────────────────────────────
+
   if (isLoading) {
     return (
       <div className="border border-gray-200 rounded-lg p-6 bg-gray-50 shadow-sm">
@@ -52,28 +135,35 @@ export function SummaryPanel({ summary, isLoading, isError, error, onGenerate }:
           ))}
         </div>
         <p className="mt-5 text-xs text-gray-500 font-medium">
-          Baixando PDF e gerando resumo com inteligência artificial — pode levar até 90 segundos.
+          Baixando PDF e gerando resumo com inteligência artificial — pode levar até 3 minutos para edições grandes.
         </p>
       </div>
     )
   }
 
+  // ── Error ─────────────────────────────────────────────────────────────────
+
   if (isError) {
     const is503 = apiError?.status === 503
     const is502 = apiError?.status === 502
+
+    const title = is503
+      ? 'Chave de API não configurada'
+      : is502
+      ? 'Link do PDF expirou'
+      : 'Erro ao gerar resumo'
+
+    const description = is503
+      ? 'Adicione GEMINI_API_KEY ao arquivo .env e reinicie a API.'
+      : is502
+      ? 'A edição foi identificada no DOU, mas o link temporário do PDF da Imprensa Nacional expirou antes do download. O sistema tentou obter um novo link automaticamente e também falhou. Tente novamente em alguns minutos.'
+      : (apiError?.message ?? 'Erro desconhecido.')
+
     return (
       <div className="border border-red-200 rounded-lg p-6 bg-red-50 shadow-sm">
-        <h3 className="text-sm font-bold text-red-700 mb-2">
-          {is503 ? 'Chave de API não configurada' : is502 ? 'PDF indisponível' : 'Erro ao gerar resumo'}
-        </h3>
-        <p className="text-xs font-medium text-red-600 mb-4">
-          {is503
-            ? 'Adicione GEMINI_API_KEY ao arquivo .env e reinicie a API.'
-            : is502
-            ? 'O PDF desta edição está temporariamente indisponível na Imprensa Nacional. Edições extras e antigas podem exigir acesso direto ao portal in.gov.br.'
-            : (apiError?.message ?? 'Erro desconhecido. Tente novamente.')}
-        </p>
-        {!is503 && !is502 && (
+        <h3 className="text-sm font-bold text-red-700 mb-2">{title}</h3>
+        <p className="text-xs font-medium text-red-600 mb-4 leading-relaxed">{description}</p>
+        {!is503 && (
           <button
             onClick={onGenerate}
             className="text-xs px-3 py-1.5 font-bold bg-red-100 text-red-700 rounded hover:bg-red-200 transition-colors"
@@ -84,6 +174,8 @@ export function SummaryPanel({ summary, isLoading, isError, error, onGenerate }:
       </div>
     )
   }
+
+  // ── Empty ─────────────────────────────────────────────────────────────────
 
   if (!summary) {
     return (
@@ -101,41 +193,84 @@ export function SummaryPanel({ summary, isLoading, isError, error, onGenerate }:
     )
   }
 
+  // ── Summary ───────────────────────────────────────────────────────────────
+
+  const processedMarkdown = applyHighlightsToMarkdown(summary.summary, phrases)
+
   return (
-      <div className="border border-gray-200 rounded-xl overflow-hidden shadow-sm bg-white">
+    <div className="border border-gray-200 rounded-xl overflow-hidden shadow-sm bg-white">
+
+      {/* Header bar */}
       <div className="flex items-center justify-between px-5 py-3 bg-gray-50 border-b border-gray-200">
         <div className="flex items-center gap-2">
           <span className="text-xs font-extrabold text-[#1351B4] uppercase tracking-wider">
             Resumo Executivo — IA
           </span>
-          <button
-            onClick={handleShare}
-            title="Copiar link"
-            className="w-7 h-7 flex items-center justify-center rounded text-gray-400 hover:text-[#1351B4] hover:bg-gray-100 transition-colors"
-          >
+          <button onClick={handleShare} title="Copiar link"
+            className="w-7 h-7 flex items-center justify-center rounded text-gray-400 hover:text-[#1351B4] hover:bg-gray-100 transition-colors">
             {copied ? <Check size={14} /> : <Share2 size={14} />}
           </button>
-          <button
-            onClick={handleDownload}
-            title="Baixar resumo"
-            className="w-7 h-7 flex items-center justify-center rounded text-gray-400 hover:text-[#1351B4] hover:bg-gray-100 transition-colors"
-          >
+          <button onClick={handleDownload} title="Baixar resumo"
+            className="w-7 h-7 flex items-center justify-center rounded text-gray-400 hover:text-[#1351B4] hover:bg-gray-100 transition-colors">
             <Download size={14} />
           </button>
+          {phrases.length > 0 && (
+            <button onClick={clear} title="Limpar todos os destaques"
+              className="w-7 h-7 flex items-center justify-center rounded text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors">
+              <Trash2 size={13} />
+            </button>
+          )}
         </div>
         <div className="flex items-center gap-3">
+          {phrases.length > 0 && (
+            <span className="text-[10px] font-bold text-amber-600 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full">
+              {phrases.length} destaque{phrases.length > 1 ? 's' : ''}
+            </span>
+          )}
           <span className="text-[11px] font-medium text-gray-500 bg-gray-200 px-2 py-0.5 rounded">{summary.model}</span>
           <span className="text-[11px] font-medium text-gray-500">
             {summary.pagesRead} págs. · {format(summary.createdAt, "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
           </span>
         </div>
       </div>
-      <div className="p-8">
-        <div className="prose max-w-none prose-headings:text-[#1351B4] prose-headings:font-extrabold prose-h1:text-2xl prose-h1:mt-6 prose-h1:mb-3 prose-h2:text-lg prose-h3:text-base prose-p:text-gray-700 prose-li:text-gray-700 prose-li:mb-2 prose-strong:text-gray-900 prose-hr:border-gray-200 prose-hr:my-6">
-          <ReactMarkdown remarkPlugins={[remarkGfm]}>
-            {summary.summary}
+
+      {/* Highlight hint */}
+      {phrases.length === 0 && (
+        <div className="flex items-center gap-2 px-5 py-2 bg-amber-50 border-b border-amber-100">
+          <Highlighter size={12} className="text-amber-500 flex-shrink-0" />
+          <p className="text-[11px] text-amber-700">
+            Selecione qualquer trecho do texto para destacá-lo como marca-texto.
+          </p>
+        </div>
+      )}
+
+      {/* Prose content */}
+      <div className="p-8 relative">
+        <div
+          ref={proseRef}
+          onClick={handleProseClick}
+          className="prose max-w-none prose-headings:text-[#1351B4] prose-headings:font-extrabold prose-h1:text-2xl prose-h1:mt-6 prose-h1:mb-3 prose-h2:text-lg prose-h3:text-base prose-p:text-gray-700 prose-li:text-gray-700 prose-li:mb-2 prose-strong:text-gray-900 prose-hr:border-gray-200 prose-hr:my-6 prose-em:text-gray-500 prose-em:text-[13px] [&_mark.highlight-mark]:bg-yellow-200 [&_mark.highlight-mark]:rounded [&_mark.highlight-mark]:px-0.5 [&_mark.highlight-mark]:cursor-pointer [&_mark.highlight-mark]:hover:bg-red-100 [&_mark.highlight-mark]:transition-colors"
+        >
+          <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeRaw, [rehypeSanitize, sanitizeSchema]]}>
+            {processedMarkdown}
           </ReactMarkdown>
         </div>
+
+        {/* Floating selection toolbar */}
+        {toolbar && (
+          <div
+            className="absolute z-20 flex items-center gap-1 bg-gray-900 text-white rounded-lg shadow-xl px-2 py-1.5 text-[11px] font-bold -translate-x-1/2 -translate-y-full pointer-events-auto"
+            style={{ left: toolbar.x, top: toolbar.y }}
+          >
+            <Highlighter size={12} className="text-yellow-300" />
+            <button
+              onMouseDown={(e) => { e.preventDefault(); handleHighlight() }}
+              className="hover:text-yellow-300 transition-colors whitespace-nowrap"
+            >
+              Destacar trecho
+            </button>
+          </div>
+        )}
       </div>
     </div>
   )
