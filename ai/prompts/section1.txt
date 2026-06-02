@@ -34,6 +34,12 @@ EXEMPLO DO FORMATO CORRETO:
 
 - **Prazo:** descrição da mudança ou obrigação.
 
+---
+
+*Nota do analista: frase única, imparcial e jornalística que situa o leitor sobre onde acompanhar a execução ou exercer controle social — por exemplo portais oficiais, ouvidorias ou canais de participação. Nunca emita opinião ou julgamento de valor.*
+
 FIM DO EXEMPLO
+
+INSTRUÇÃO FINAL: Termine SEMPRE com o bloco "---" seguido da nota do analista em itálico, exatamente como no exemplo acima. NÃO escreva "FIM DO RESUMO" nem qualquer outro marcador de encerramento.
 
 CONTEÚDO DA SEÇÃO 1:
