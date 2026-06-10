@@ -1,11 +1,16 @@
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
-import { Check, Download, Share2, Highlighter, Trash2 } from 'lucide-react'
+import { Check, Download, Share2, Highlighter, Trash2, Languages, Loader2 } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import rehypeRaw from 'rehype-raw'
 import rehypeSanitize, { defaultSchema } from 'rehype-sanitize'
+import { useQuery } from '@tanstack/react-query'
+import type { AISummary } from '../../../../domain/entities/AISummary'
+import { ApiError } from '../../../../infrastructure/api/client'
+import { fetchEditionSummaryEn } from '../../../../infrastructure/api/editions.api'
+import { useHighlights, applyHighlightsToMarkdown } from '../../../../application/hooks/useHighlights'
 
 // Allow <mark> with our highlight attributes; block everything else not in defaultSchema
 const sanitizeSchema = {
@@ -16,9 +21,6 @@ const sanitizeSchema = {
     mark: ['className', 'dataphrase'],
   },
 }
-import type { AISummary } from '../../../../domain/entities/AISummary'
-import { ApiError } from '../../../../infrastructure/api/client'
-import { useHighlights, applyHighlightsToMarkdown } from '../../../../application/hooks/useHighlights'
 
 interface Props {
   editionId: number
@@ -38,7 +40,38 @@ interface SelectionToolbar {
 export function SummaryPanel({ editionId, summary, isLoading, isError, error, onGenerate }: Props) {
   const apiError = error instanceof ApiError ? error : null
   const [copied, setCopied] = useState(false)
+  const [lang, setLang] = useState<'pt' | 'en'>('pt')
+  const [requestTranslation, setRequestTranslation] = useState(false)
   const [toolbar, setToolbar] = useState<SelectionToolbar | null>(null)
+
+  // Translation query — enabled only after user clicks EN, uses DB cache when available
+  const {
+    data: translatedSummary,
+    isLoading: isTranslating,
+    isError: isTranslationError,
+  } = useQuery({
+    queryKey: ['summary-en', editionId],
+    queryFn: () => fetchEditionSummaryEn(editionId),
+    enabled: requestTranslation && !!summary,
+    staleTime: Infinity,  // translations are immutable once generated
+    retry: false,
+  })
+
+  // If the PT summary already has a cached EN translation, pre-populate
+  const initialEn = summary?.summaryEn ?? null
+
+  const activeSummaryText = lang === 'en'
+    ? (translatedSummary?.summaryEn ?? initialEn ?? summary?.summary ?? '')
+    : (summary?.summary ?? '')
+
+  function handleToggleLang() {
+    if (lang === 'pt') {
+      setLang('en')
+      if (!initialEn) setRequestTranslation(true)
+    } else {
+      setLang('pt')
+    }
+  }
   const proseRef = useRef<HTMLDivElement>(null)
   const { phrases, add, remove, clear } = useHighlights(editionId)
 
@@ -195,7 +228,7 @@ export function SummaryPanel({ editionId, summary, isLoading, isError, error, on
 
   // ── Summary ───────────────────────────────────────────────────────────────
 
-  const processedMarkdown = applyHighlightsToMarkdown(summary.summary, phrases)
+  const processedMarkdown = applyHighlightsToMarkdown(activeSummaryText, phrases)
 
   return (
     <div className="border border-gray-200 rounded-xl overflow-hidden shadow-sm bg-white">
@@ -206,6 +239,28 @@ export function SummaryPanel({ editionId, summary, isLoading, isError, error, on
           <span className="text-xs font-extrabold text-[#1351B4] uppercase tracking-wider">
             Resumo Executivo — IA
           </span>
+
+          {/* Language toggle */}
+          <button
+            onClick={handleToggleLang}
+            disabled={isTranslating}
+            title={lang === 'pt' ? 'Traduzir para inglês' : 'Voltar para português'}
+            className={`inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-bold rounded-lg border transition-all ${
+              lang === 'en'
+                ? 'bg-[#1351B4] text-white border-[#1351B4]'
+                : 'bg-white text-gray-500 border-gray-200 hover:border-[#1351B4] hover:text-[#1351B4]'
+            } disabled:opacity-50 disabled:cursor-not-allowed`}
+          >
+            {isTranslating
+              ? <Loader2 size={11} className="animate-spin" />
+              : <Languages size={11} />}
+            {lang === 'en' ? 'EN' : 'PT'}
+          </button>
+
+          {isTranslationError && lang === 'en' && (
+            <span className="text-[10px] text-red-500 font-medium">Falha na tradução</span>
+          )}
+
           <button onClick={handleShare} title="Copiar link"
             className="w-7 h-7 flex items-center justify-center rounded text-gray-400 hover:text-[#1351B4] hover:bg-gray-100 transition-colors">
             {copied ? <Check size={14} /> : <Share2 size={14} />}

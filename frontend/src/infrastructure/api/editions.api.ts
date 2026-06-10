@@ -24,6 +24,12 @@ export async function fetchEditionSummary(editionId: number): Promise<AISummary>
   return toAISummary(data)
 }
 
+export async function fetchEditionSummaryEn(editionId: number): Promise<AISummary> {
+  // Translation via Gemini — cached in DB after first call, subsequent calls are instant
+  const { data } = await apiClient.get<AISummaryDTO>(`/editions/${editionId}/summary/en`, { timeout: 120_000 })
+  return toAISummary(data)
+}
+
 export async function fetchAvailableDates(): Promise<Date[]> {
   const { data } = await apiClient.get<string[]>('/editions/dates')
   return data.map((d) => new Date(d + 'T00:00:00'))

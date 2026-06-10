@@ -21,6 +21,7 @@ class SummaryOut(BaseModel):
     edition_title: str | None = None
     model: str
     summary: str
+    summary_en: str | None = None
     pages_read: int
     created_at: datetime
 
