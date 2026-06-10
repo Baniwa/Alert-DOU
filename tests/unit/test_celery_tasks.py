@@ -1,22 +1,7 @@
-import sys
 from contextlib import contextmanager
 from unittest.mock import MagicMock, patch
 
-# Stubs for modules that live in feature/ai-summaries (not yet on this branch)
-_ai_stub = MagicMock()
-_ai_stub.GeminiClient = MagicMock
-_ai_stub._detect_section = MagicMock(return_value="secao1")
-
-_pdf_stub = MagicMock()
-_pdf_stub.extract_pdf_text = MagicMock(return_value=("texto", 3))
-
-sys.modules.setdefault("ai", MagicMock())
-sys.modules.setdefault("ai.client", _ai_stub)
-sys.modules.setdefault("scraper.pdf_extractor", _pdf_stub)
-
-import database.models as _db_models  # noqa: E402
-if not hasattr(_db_models, "AISummary"):
-    _db_models.AISummary = MagicMock()
+import pytest
 
 
 def _ctx(session):
@@ -30,6 +15,39 @@ def _mock_select():
     q = MagicMock()
     q.where.return_value = q
     return MagicMock(return_value=q)
+
+
+def _make_stubs():
+    ai_stub = MagicMock()
+    ai_stub.GeminiClient = MagicMock
+    ai_stub._detect_section = MagicMock(return_value="secao1")
+
+    pdf_stub = MagicMock()
+    pdf_stub.extract_pdf_text = MagicMock(return_value=("texto", 3))
+
+    ai_pkg_stub = MagicMock()
+
+    return {
+        "ai": ai_pkg_stub,
+        "ai.client": ai_stub,
+        "scraper.pdf_extractor": pdf_stub,
+    }, ai_stub, pdf_stub
+
+
+@pytest.fixture(autouse=True)
+def _patch_heavy_modules(monkeypatch):
+    stubs, _, _ = _make_stubs()
+    with patch.dict("sys.modules", stubs):
+        # Ensure workers.tasks is re-imported with the patched modules
+        import sys
+        sys.modules.pop("workers.tasks", None)
+        yield
+        sys.modules.pop("workers.tasks", None)
+
+
+def _current_stubs():
+    import sys
+    return sys.modules.get("ai.client"), sys.modules.get("scraper.pdf_extractor")
 
 
 class TestScrapeToday:
@@ -80,6 +98,10 @@ class TestSummarizeEdition:
         assert result == {"error": "edition not found"}
 
     def test_generates_summary_when_not_cached(self):
+        import sys
+        ai_stub = sys.modules["ai.client"]
+        pdf_stub = sys.modules["scraper.pdf_extractor"]
+
         session = MagicMock()
         session.get.return_value = MagicMock(pdf_url="https://...", title="DOU Secao 2", id=5)
         session.scalar.return_value = None
@@ -90,8 +112,8 @@ class TestSummarizeEdition:
 
         with patch("database.get_session", _ctx(session)), \
              patch("sqlalchemy.select", _mock_select()), \
-             patch.object(_pdf_stub, "extract_pdf_text", return_value=("texto pdf", 4)), \
-             patch.object(_ai_stub, "GeminiClient", return_value=mock_client):
+             patch.object(pdf_stub, "extract_pdf_text", return_value=("texto pdf", 4)), \
+             patch.object(ai_stub, "GeminiClient", return_value=mock_client):
             from workers.tasks import summarize_edition
             result = summarize_edition.run(edition_id=5)
 

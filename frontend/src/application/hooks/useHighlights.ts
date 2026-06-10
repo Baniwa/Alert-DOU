@@ -65,7 +65,11 @@ export function useHighlights(editionId: number) {
 
 export function applyHighlightsToMarkdown(markdown: string, phrases: string[]): string {
   if (!phrases.length) return markdown
-  let result = markdown
+
+  // Split into text tokens and tag tokens so we never touch HTML attributes or
+  // content that is already inside a <mark> element.
+  const tokens = markdown.split(/(<[^>]+>)/)
+
   for (const phrase of phrases) {
     const escaped = phrase
       .replace(/&/g, '&amp;')
@@ -73,10 +77,19 @@ export function applyHighlightsToMarkdown(markdown: string, phrases: string[]): 
       .replace(/>/g, '&gt;')
       .replace(/"/g, '&quot;')
     const pattern = phrase.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-    result = result.replace(
-      new RegExp(pattern, 'gi'),
-      `<mark class="highlight-mark" data-phrase="${escaped}">${escaped}</mark>`,
-    )
+    const re = new RegExp(pattern, 'gi')
+
+    let depth = 0
+    for (let i = 0; i < tokens.length; i++) {
+      const t = tokens[i]
+      if (t.startsWith('<')) {
+        if (/^<mark\b/i.test(t)) depth++
+        else if (/^<\/mark>/i.test(t)) depth--
+      } else if (depth === 0) {
+        tokens[i] = t.replace(re, `<mark class="highlight-mark" data-phrase="${escaped}">${escaped}</mark>`)
+      }
+    }
   }
-  return result
+
+  return tokens.join('')
 }
