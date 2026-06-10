@@ -86,6 +86,48 @@ def get_edition(edition_id: int, request: Request):
         return edition
 
 
+@router.get("/{edition_id}/summary/en", response_model=SummaryOut)
+@limiter.limit("10/minute")
+def get_edition_summary_en(edition_id: int, request: Request):
+    """English translation of an AI summary — generated once via Gemini, cached in DB.
+
+    Security:
+    - Rate limited to 10/min (tighter than PT — each miss costs Gemini tokens)
+    - Requires the PT summary to exist first (no orphan translation calls)
+    - Translation prompt includes an explicit prompt-injection guard
+    - DB cache: subsequent calls return instantly at zero Gemini cost
+    """
+    with get_session() as session:
+        cached = session.scalar(
+            select(AISummary).where(AISummary.edition_id == edition_id)
+        )
+        if not cached:
+            raise HTTPException(
+                status_code=404,
+                detail="No summary found. Generate the Portuguese summary first.",
+            )
+
+        if cached.summary_en:
+            logger.info("translation_cache_hit", extra={"edition_id": edition_id})
+            return cached
+
+        logger.info("translation_cache_miss", extra={"edition_id": edition_id})
+        try:
+            client = GeminiClient()
+            summary_en = client.translate_to_english(cached.summary)
+        except EnvironmentError as exc:
+            logger.error("translation_env_error", exc_info=exc)
+            raise HTTPException(status_code=503, detail="Service unavailable")
+        except Exception as exc:
+            logger.error("translation_failed", extra={"edition_id": edition_id}, exc_info=exc)
+            raise HTTPException(status_code=500, detail="Internal server error during translation")
+
+        cached.summary_en = summary_en
+        session.commit()
+        session.refresh(cached)
+        return cached
+
+
 @router.get("/{edition_id}/summary", response_model=SummaryOut)
 @limiter.limit("30/minute")
 def get_edition_summary(edition_id: int, request: Request):
