@@ -1,15 +1,3 @@
-"""Structured JSON logging for Alert DOU API.
-
-Every log line is a single JSON object. Fields:
-  timestamp   ISO-8601 UTC
-  level       DEBUG / INFO / WARNING / ERROR / CRITICAL
-  logger      module name
-  request_id  8-char hex ID injected by RequestLoggingMiddleware (or "-" at startup)
-  message     sanitised log message (CPF and secrets redacted)
-  exception   formatted traceback (only on exc_info=True)
-  *extra      any extra keys passed via logger.info("msg", extra={...})
-"""
-
 import json
 import logging
 import os
@@ -19,10 +7,9 @@ from contextvars import ContextVar
 from datetime import datetime, timezone
 from typing import Any
 
-# ── Context variable propagated through a single HTTP request ─────────────────
 request_id_var: ContextVar[str] = ContextVar("request_id", default="-")
 
-# ── Redaction patterns ────────────────────────────────────────────────────────
+
 _CPF_RE = re.compile(r"\b\d{3}[\.\s]?\d{3}[\.\s]?\d{3}[\-\s]?\d{2}\b")
 _SECRET_RE = re.compile(
     r"(?i)(key|token|secret|password|api_key|apikey|authorization)\s*[=:]\s*\S+",
@@ -36,8 +23,6 @@ def _redact(message: str) -> str:
     message = _URL_TOKEN_RE.sub(r"\1[TOKEN]", message)
     return message
 
-
-# ── JSON formatter ────────────────────────────────────────────────────────────
 
 _SKIP_KEYS = frozenset({
     "msg", "args", "exc_info", "exc_text", "stack_info",
@@ -62,15 +47,12 @@ class JSONFormatter(logging.Formatter):
         if record.exc_info:
             entry["exception"] = self.formatException(record.exc_info)
 
-        # Attach any extra={} fields passed by the caller
         for key, value in record.__dict__.items():
             if key not in _SKIP_KEYS and not key.startswith("_"):
                 entry.setdefault("extra", {})[key] = value
 
         return json.dumps(entry, ensure_ascii=False, default=str)
 
-
-# ── Configure root logger ─────────────────────────────────────────────────────
 
 def configure_logging() -> None:
     handler = logging.StreamHandler()

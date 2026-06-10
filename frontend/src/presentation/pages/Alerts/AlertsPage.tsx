@@ -9,15 +9,10 @@ import { toAISummary } from '../../../infrastructure/mappers/summary.mapper'
 import type { AISummary } from '../../../domain/entities/AISummary'
 import type { AISummaryDTO } from '../../../infrastructure/api/dto/AISummaryDTO'
 
-// ── constants ────────────────────────────────────────────────────────────────
-
 const STORAGE_KEY = 'alert-dou:tracked-names'
 const MAX_NAME_LENGTH = 100
 const MAX_TRACKED = 20
 
-// ── validation ───────────────────────────────────────────────────────────────
-
-// Normalise CPF: strip formatting so "123.456.789-09" and "12345678909" match equally
 function normaliseCPF(value: string): string {
   return value.replace(/\D/g, '')
 }
@@ -26,7 +21,6 @@ function isCPF(value: string): boolean {
   return /^\d{3}[\.\s]?\d{3}[\.\s]?\d{3}[\-\s]?\d{2}$/.test(value.trim())
 }
 
-// Sanitise display: strip characters that could cause XSS if ever rendered as HTML
 function sanitise(value: string): string {
   return value.replace(/[<>"'`]/g, '').trim()
 }
@@ -39,15 +33,12 @@ function validateInput(raw: string): { ok: true; value: string } | { ok: false; 
 
   if (isCPF(trimmed)) {
     const digits = normaliseCPF(trimmed)
-    // Reject CPFs with all identical digits (111.111.111-11 etc.) — invalid by design
     if (/^(\d)\1{10}$/.test(digits)) return { ok: false, error: 'CPF inválido.' }
     return { ok: true, value: digits } // store normalised
   }
 
   return { ok: true, value: sanitise(trimmed) }
 }
-
-// ── storage ──────────────────────────────────────────────────────────────────
 
 function loadNames(): string[] {
   try {
@@ -62,14 +53,10 @@ function saveNames(list: string[]) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(list.slice(0, MAX_TRACKED)))
 }
 
-// ── API ───────────────────────────────────────────────────────────────────────
-
 async function searchSummaries(q: string): Promise<AISummary[]> {
   const { data } = await apiClient.get<AISummaryDTO[]>('/summaries/search', { params: { q, limit: 20 } })
   return data.map(toAISummary)
 }
-
-// ── component ────────────────────────────────────────────────────────────────
 
 function displayName(value: string): string {
   // If it looks like a raw CPF (11 digits), format for display
@@ -118,7 +105,6 @@ export function AlertsPage() {
   return (
     <div className="max-w-3xl w-full mx-auto">
 
-      {/* Header */}
       <div className="mb-8 border-b border-gray-200 pb-6">
         <p className="text-[11px] font-bold text-[#1351B4] uppercase tracking-[0.15em] mb-2 flex items-center gap-2">
           <Bell size={12} />
@@ -130,7 +116,6 @@ export function AlertsPage() {
         </p>
       </div>
 
-      {/* Notice */}
       <div className="flex items-start gap-3 p-4 mb-6 bg-amber-50 border border-amber-200 rounded-xl text-[12px] text-amber-800">
         <AlertCircle size={14} className="mt-0.5 flex-shrink-0 text-amber-500" />
         <p>
@@ -139,7 +124,6 @@ export function AlertsPage() {
         </p>
       </div>
 
-      {/* Input */}
       <div className="mb-6">
         <label className="block text-[11px] font-bold text-gray-600 uppercase tracking-wider mb-2">
           Adicionar nome ou CPF
@@ -175,7 +159,6 @@ export function AlertsPage() {
         </p>
       </div>
 
-      {/* Tracked entries */}
       {tracked.length > 0 && (
         <div className="mb-8">
           <p className="text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-3">
@@ -211,7 +194,6 @@ export function AlertsPage() {
         </div>
       )}
 
-      {/* Empty state */}
       {tracked.length === 0 && (
         <div className="rounded-xl border border-dashed border-gray-300 bg-gray-50 p-16 text-center">
           <div className="text-4xl mb-4">👤</div>
@@ -222,7 +204,6 @@ export function AlertsPage() {
         </div>
       )}
 
-      {/* Search results */}
       {activeSearch && (
         <div>
           <div className="flex items-center gap-3 mb-5">

@@ -44,11 +44,7 @@ class GeminiClient:
         return response.text
 
     def translate_to_english(self, summary_pt: str) -> str:
-        """Translate a Portuguese DOU summary to English.
-
-        Security: the instruction is prepended as a strict system directive so the
-        model cannot be hijacked by adversarial content in the summary text itself.
-        """
+        # Prepended as a strict directive so the model cannot be hijacked by adversarial content inside the summary text.
         prompt = (
             "You are a professional translator specialising in Brazilian government documents.\n"
             "Translate the following executive summary from Brazilian Portuguese to English.\n"

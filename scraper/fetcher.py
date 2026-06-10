@@ -20,18 +20,6 @@ JOURNAL_LIST_URL = "https://pesquisa.in.gov.br/imprensa/core/jornalList.action"
 
 
 def fetch_dou_today(since: date | None = None, debug: bool = False) -> list[dict]:
-    """Fetch DOU edition list for the given date (defaults to today).
-
-    Strategy:
-      1. Navigate to in.gov.br to get a valid session and bypass Cloudflare WAF.
-      2. Use that browser context to POST directly to pesquisa.in.gov.br/jornalList.action.
-         (context.request shares cookies/headers with the browser, no UI automation needed)
-      3. Parse the ResultadoConsulta table from the HTML response.
-
-    Args:
-        since: date to fetch. Defaults to today.
-        debug: saves screenshot + HTML response to disk for inspection.
-    """
     target_date = since or date.today()
     logger.info(f"Buscando edições do DOU para {target_date.isoformat()}...")
 
@@ -133,11 +121,6 @@ def _parse_html(html: str) -> list[dict]:
 
 
 def save_editions(editions: list[dict]) -> int:
-    """Persist scraped editions to the database. Returns count of new rows inserted.
-
-    Uses INSERT ... ON CONFLICT DO NOTHING so re-running is always safe.
-    Field mapping: scraper keys → model columns.
-    """
     if not editions:
         return 0
 

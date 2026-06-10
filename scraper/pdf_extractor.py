@@ -54,12 +54,6 @@ def _download_pdf(pdf_url: str) -> bytes:
 
 
 def extract_pdf_text(pdf_url: str, max_pages: int = _MAX_PAGES) -> tuple[str, int]:
-    """Download a DOU edition PDF and extract text from the first N pages.
-
-    Returns (extracted_text, pages_read).
-    Raises httpx.HTTPStatusError on download failure or RuntimeError if no
-    text could be extracted.
-    """
     pdf_bytes = _download_pdf(pdf_url)
 
     with pdfplumber.open(io.BytesIO(pdf_bytes)) as pdf:
