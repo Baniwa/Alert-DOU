@@ -28,3 +28,7 @@ dev = [
     "pytest-asyncio>=0.24",
     "mkdocs-material>=9.5",
 ]
+
+[tool.setuptools.packages.find]
+include = ["ai*", "api*", "database*", "scraper*", "workers*"]
+exclude = ["frontend*", "alembic*", "overrides*", "tests*"]
