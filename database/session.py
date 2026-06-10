@@ -2,27 +2,28 @@ import os
 from contextlib import contextmanager
 from typing import Generator
 from dotenv import load_dotenv
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, Engine
 from sqlalchemy.orm import Session, sessionmaker
 from database.models import Base
 
-load_dotenv()
+_engine: Engine | None = None
+_SessionFactory: sessionmaker | None = None
 
-_DATABASE_URL = os.environ["DATABASE_URL"] #princípio fail fast.
 
-engine = create_engine(
-    _DATABASE_URL,
-    pool_size=5,
-    max_overflow=10,
-    echo=False,
-)
-
-_SessionFactory = sessionmaker(bind=engine, autocommit=False, autoflush=False, expire_on_commit=False)
+def _init() -> None:
+    global _engine, _SessionFactory
+    if _engine is not None:
+        return
+    load_dotenv()
+    url = os.environ["DATABASE_URL"]  # fail fast at first real DB access
+    _engine = create_engine(url, pool_size=5, max_overflow=10, echo=False)
+    _SessionFactory = sessionmaker(bind=_engine, autocommit=False, autoflush=False, expire_on_commit=False)
 
 
 @contextmanager
 def get_session() -> Generator[Session, None, None]:
-    session = _SessionFactory()
+    _init()
+    session = _SessionFactory()  # type: ignore[misc]
     try:
         yield session
         session.commit()
@@ -34,7 +35,8 @@ def get_session() -> Generator[Session, None, None]:
 
 
 def create_tables() -> None:
-    Base.metadata.create_all(bind=engine)
+    _init()
+    Base.metadata.create_all(bind=_engine)
 
 
 #with get_session() as session:
