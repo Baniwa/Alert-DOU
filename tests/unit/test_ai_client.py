@@ -63,7 +63,7 @@ class TestGeminiClient:
         assert result == "Resumo executivo gerado pela IA."
         mock_models.generate_content.assert_called_once()
         call_kwargs = mock_models.generate_content.call_args
-        assert "gemini-2.0-flash" in str(call_kwargs)
+        assert "gemini-3.5-flash" in str(call_kwargs)
 
     def test_summarize_includes_prompt_and_content(self, monkeypatch):
         monkeypatch.setenv("GEMINI_API_KEY", "fake-key")

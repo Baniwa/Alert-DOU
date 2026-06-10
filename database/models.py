@@ -1,7 +1,7 @@
 from datetime import date, datetime
 
 from sqlalchemy import Date, DateTime, ForeignKey, Integer, String, Text, UniqueConstraint, func
-from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
+from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
 
 class Base(DeclarativeBase):
@@ -32,6 +32,7 @@ class AISummary(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     edition_id: Mapped[int] = mapped_column(ForeignKey("editions.id", ondelete="CASCADE"), nullable=False, unique=True)
+    edition: Mapped["Edition"] = relationship("Edition", lazy="joined")
     model: Mapped[str] = mapped_column(String(60), nullable=False)
     summary: Mapped[str] = mapped_column(Text, nullable=False)
     pages_read: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
@@ -39,3 +40,11 @@ class AISummary(Base):
 
     def __repr__(self) -> str:
         return f"<AISummary edition_id={self.edition_id} model={self.model!r}>"
+
+    @property
+    def edition_number(self) -> str | None:
+        return self.edition.edition_number if self.edition else None
+
+    @property
+    def edition_title(self) -> str | None:
+        return self.edition.title if self.edition else None

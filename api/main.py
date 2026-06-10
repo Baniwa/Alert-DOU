@@ -1,14 +1,23 @@
+import os
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request, Response
+from fastapi.middleware.cors import CORSMiddleware
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
 
-from api.routes import router
-from database.session import create_tables
+from api.routes import router, summary_router
+from api.limiter import limiter
 
+_CORS_ORIGINS = os.environ.get(
+    "CORS_ORIGINS",
+    "http://localhost:5173,http://localhost:4173",
+).split(",")
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    create_tables()
+    # Alembic handles migrations now, no need for create_tables() here
     yield
 
 
@@ -19,4 +28,29 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=_CORS_ORIGINS,
+    allow_methods=["GET"],
+    allow_headers=["Content-Type", "Authorization"],
+)
+
 app.include_router(router)
+app.include_router(summary_router)
+
+
+@app.middleware("http")
+async def security_headers(request: Request, call_next):
+    response: Response = await call_next(request)
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    return response
+
+
+@app.get("/health", response_model=dict, tags=["health"])
+def health_check():
+    return {"status": "ok"}

@@ -56,22 +56,60 @@ DATABASE_URL=postgresql://alertdou:sua_senha_local@localhost:5432/alertdou
 REDIS_URL=redis://localhost:6379/0
 ```
 
-### 2.3 Subir Infraestrutura
+### 2.3 Subir Stack Completa com Docker
+
+A stack inteira (API, Worker, PostgreSQL, Redis) é orquestrada pelo Docker Compose:
 
 ```bash
-docker-compose up -d
+# Build e start de todos os serviços
+docker compose up --build
+
+# Em background
+docker compose up --build -d
+
+# Ver logs
+docker compose logs -f api
+docker compose logs -f worker
 ```
 
-### 2.4 Executar
+O `entrypoint.sh` garante que o Alembic rode as migrações (`alembic upgrade head`) **antes** de a API subir. Não é necessário rodar migrações manualmente.
+
+**Serviços expostos:**
+
+| Serviço | Porta | URL |
+|---------|-------|-----|
+| API FastAPI | 8000 | `http://localhost:8000/docs` |
+| PostgreSQL | 5432 | `localhost:5432` |
+| Redis | 6379 | `localhost:6379` |
+
+**Verificar que a API está de pé:**
 
 ```bash
-# Coletar edições de hoje
-python -m scraper.fetcher
+curl http://localhost:8000/health
+# {"status":"ok"}
+```
 
-# Iniciar API
+### 2.4 Executar sem Docker (desenvolvimento local)
+
+Para desenvolvimento com hot-reload, é possível rodar apenas o banco via Docker e a API localmente:
+
+```bash
+# Apenas infraestrutura
+docker compose up -d db redis
+
+# Rodar migrações
+alembic upgrade head
+
+# API com hot-reload
 uvicorn api.main:app --reload
 
-# API disponível em http://localhost:8000/docs
+# Worker em outro terminal
+python -m workers.scheduler
+
+# Frontend
+cd frontend
+npm install
+npm run dev  # http://localhost:5173
 ```
 
 ---

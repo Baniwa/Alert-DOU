@@ -9,7 +9,7 @@ _SECTION_MAP = {
     "secao2": "section2",
     "secao3": "section3",
 }
-_DEFAULT_MODEL = "gemini-2.0-flash"
+_DEFAULT_MODEL = "gemini-3.5-flash"
 
 
 def _load_prompt(section_key: str) -> str:
@@ -19,7 +19,7 @@ def _load_prompt(section_key: str) -> str:
 
 def _detect_section(edition_title: str) -> str:
     title = edition_title.lower()
-    if "seção 2" in title or "secao 2" in title or "seção 2" in title:
+    if "seção 2" in title or "secao 2" in title or "secção 2" in title:
         return "secao2"
     if "seção 3" in title or "secao 3" in title or "seção 3" in title:
         return "secao3"

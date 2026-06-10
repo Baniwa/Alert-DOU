@@ -1,0 +1,381 @@
+/* ============================================================
+   Alert DOU — Identidade Visual Governamental
+   Paleta: GOV.BR · Senado Federal · Câmara dos Deputados
+   ============================================================ */
+
+/* --- Variáveis: Modo Escuro --- */
+[data-md-color-scheme="slate"] {
+  --md-primary-fg-color:             #071D41;
+  --md-primary-fg-color--light:      #1351B4;
+  --md-primary-fg-color--dark:       #030F22;
+  --md-primary-bg-color:             #FFFFFF;
+  --md-primary-bg-color--light:      rgba(255, 255, 255, 0.7);
+  --md-accent-fg-color:              #C9A84C;
+  --md-accent-fg-color--transparent: rgba(201, 168, 76, 0.12);
+  --md-default-bg-color:             #0F1C2E;
+  --md-default-fg-color:             rgba(255, 255, 255, 0.87);
+  --md-default-fg-color--light:      rgba(255, 255, 255, 0.54);
+  --md-code-bg-color:                #0A1628;
+  --md-code-fg-color:                #8FBCDB;
+  --dou-gold:                        #C9A84C;
+  --dou-navy:                        #071D41;
+  --dou-blue:                        #1351B4;
+  --dou-green:                       #168821;
+}
+
+/* --- Variáveis: Modo Claro --- */
+[data-md-color-scheme="default"] {
+  --md-primary-fg-color:             #071D41;
+  --md-primary-fg-color--light:      #1351B4;
+  --md-primary-fg-color--dark:       #030F22;
+  --md-primary-bg-color:             #FFFFFF;
+  --md-accent-fg-color:              #B8860B;
+  --md-accent-fg-color--transparent: rgba(184, 134, 11, 0.1);
+  --md-default-bg-color:             #F5F7FA;
+  --md-code-bg-color:                #EBF0F8;
+  --dou-gold:                        #B8860B;
+  --dou-navy:                        #071D41;
+  --dou-blue:                        #1351B4;
+  --dou-green:                       #168821;
+}
+
+/* ============================================================
+   BARRA SUPERIOR — REPÚBLICA FEDERATIVA DO BRASIL
+   ============================================================ */
+.gov-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  background-color: #168821;
+  padding: 5px 16px;
+  font-size: 10.5px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  color: #FFFFFF;
+  text-transform: uppercase;
+  border-bottom: 2px solid #FFCD07;
+  font-family: "Roboto", sans-serif;
+}
+
+.gov-topbar__flag {
+  font-size: 13px;
+  line-height: 1;
+}
+
+.gov-topbar__sep {
+  opacity: 0.5;
+  margin: 0 2px;
+}
+
+/* Remove estilo padrão do announce do Material */
+.md-announce {
+  background: transparent !important;
+  color: inherit !important;
+  padding: 0 !important;
+}
+
+.md-announce__inner {
+  padding: 0 !important;
+  margin: 0 !important;
+  max-width: none !important;
+}
+
+/* ============================================================
+   CABEÇALHO PRINCIPAL
+   ============================================================ */
+.md-header {
+  background-color: #071D41 !important;
+  border-bottom: 3px solid var(--dou-gold);
+  box-shadow: 0 2px 16px rgba(0, 0, 0, 0.5);
+}
+
+.md-header__title {
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  font-size: 1.05rem;
+}
+
+.md-header__title .md-header__topic:first-child {
+  font-weight: 800;
+}
+
+/* Logo ícone */
+.md-header__button.md-logo {
+  color: var(--dou-gold) !important;
+}
+
+/* ============================================================
+   NAVEGAÇÃO POR ABAS
+   ============================================================ */
+.md-tabs {
+  background-color: #0D2847 !important;
+  border-bottom: 1px solid rgba(201, 168, 76, 0.25);
+}
+
+.md-tabs__link {
+  font-size: 0.73rem;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  opacity: 0.75;
+  transition: color 0.2s, opacity 0.2s;
+}
+
+.md-tabs__link--active,
+.md-tabs__link:hover {
+  color: var(--dou-gold) !important;
+  opacity: 1 !important;
+}
+
+.md-tabs__link--active {
+  border-bottom: 2px solid var(--dou-gold);
+}
+
+/* ============================================================
+   BARRA LATERAL — NAVEGAÇÃO
+   ============================================================ */
+.md-nav__title {
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--dou-gold) !important;
+  padding-bottom: 6px;
+  border-bottom: 1px solid rgba(201, 168, 76, 0.2);
+  margin-bottom: 4px;
+}
+
+.md-nav__link--active,
+.md-nav__link--active:hover {
+  color: var(--dou-gold) !important;
+  font-weight: 600;
+  border-left: 3px solid var(--dou-gold);
+  padding-left: 8px;
+  margin-left: -3px;
+}
+
+.md-nav__link:hover {
+  color: var(--md-primary-fg-color--light) !important;
+}
+
+/* ============================================================
+   CONTEÚDO — TIPOGRAFIA E TÍTULOS
+   ============================================================ */
+.md-content h1 {
+  border-bottom: 3px solid var(--dou-gold);
+  padding-bottom: 0.45em;
+  margin-bottom: 1em;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  color: var(--dou-navy);
+}
+
+[data-md-color-scheme="slate"] .md-content h1 {
+  color: #FFFFFF;
+}
+
+.md-content h2 {
+  border-left: 4px solid var(--dou-navy);
+  padding-left: 14px;
+  font-weight: 700;
+  margin-top: 1.8em;
+}
+
+[data-md-color-scheme="slate"] .md-content h2 {
+  border-left-color: var(--dou-blue);
+}
+
+.md-content h3 {
+  font-weight: 600;
+  color: var(--dou-navy);
+}
+
+[data-md-color-scheme="slate"] .md-content h3 {
+  color: rgba(255, 255, 255, 0.87);
+}
+
+/* Links */
+.md-typeset a {
+  color: var(--dou-blue) !important;
+  text-decoration: none;
+  border-bottom: 1px solid rgba(19, 81, 180, 0.3);
+  transition: border-color 0.2s, color 0.2s;
+}
+
+.md-typeset a:hover {
+  color: var(--dou-gold) !important;
+  border-bottom-color: var(--dou-gold);
+}
+
+/* ============================================================
+   TABELAS — ESTILO OFICIAL
+   ============================================================ */
+.md-typeset table:not([class]) {
+  border-radius: 4px;
+  overflow: hidden;
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.15);
+  border-collapse: collapse;
+  width: 100%;
+}
+
+.md-typeset table:not([class]) th {
+  background-color: #071D41 !important;
+  color: #FFFFFF !important;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  font-size: 0.72rem;
+  padding: 10px 14px;
+  border: none !important;
+}
+
+.md-typeset table:not([class]) td {
+  padding: 9px 14px;
+  border-bottom: 1px solid rgba(7, 29, 65, 0.08);
+  font-size: 0.85rem;
+}
+
+.md-typeset table:not([class]) tr:nth-child(even) td {
+  background-color: rgba(7, 29, 65, 0.04);
+}
+
+[data-md-color-scheme="slate"] .md-typeset table:not([class]) tr:nth-child(even) td {
+  background-color: rgba(19, 81, 180, 0.07);
+}
+
+.md-typeset table:not([class]) tr:hover td {
+  background-color: rgba(201, 168, 76, 0.06) !important;
+}
+
+/* ============================================================
+   BLOCOS DE CÓDIGO
+   ============================================================ */
+.md-typeset code {
+  background-color: rgba(7, 29, 65, 0.09);
+  color: #1351B4;
+  border-radius: 3px;
+  font-size: 0.84em;
+  padding: 0.1em 0.35em;
+}
+
+[data-md-color-scheme="slate"] .md-typeset code {
+  background-color: rgba(19, 81, 180, 0.18);
+  color: #7BAFD4;
+}
+
+.md-typeset pre > code {
+  background: transparent;
+  color: inherit;
+  padding: 0;
+}
+
+.highlight pre,
+.md-typeset pre {
+  border-left: 4px solid var(--dou-gold);
+  border-radius: 0 4px 4px 0;
+}
+
+/* Cabeçalho do bloco de código */
+.md-typeset .highlight span.filename {
+  background-color: #071D41;
+  color: var(--dou-gold);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+}
+
+/* ============================================================
+   BUSCA
+   ============================================================ */
+.md-search__form {
+  border: 1px solid rgba(201, 168, 76, 0.35);
+  border-radius: 4px;
+  transition: border-color 0.2s;
+}
+
+.md-search__form:focus-within {
+  border-color: var(--dou-gold);
+  box-shadow: 0 0 0 2px rgba(201, 168, 76, 0.2);
+}
+
+.md-search-result mark {
+  color: var(--dou-gold);
+  background: transparent;
+  font-weight: 700;
+}
+
+/* ============================================================
+   BOTÃO VOLTAR AO TOPO
+   ============================================================ */
+.md-top {
+  background-color: #071D41 !important;
+  color: var(--dou-gold) !important;
+  border: 1px solid rgba(201, 168, 76, 0.4);
+}
+
+/* ============================================================
+   FOOTER
+   ============================================================ */
+.md-footer {
+  background-color: #030F22 !important;
+  border-top: 3px solid var(--dou-gold);
+}
+
+.md-footer-meta {
+  background-color: #020A18 !important;
+}
+
+.md-footer__inner {
+  padding-bottom: 0.6rem;
+}
+
+/* Linha de rodapé institucional */
+.md-footer-meta__inner::after {
+  content: "REPÚBLICA FEDERATIVA DO BRASIL  ·  IMPRENSA NACIONAL  ·  Alert DOU v0.1.0";
+  display: block;
+  text-align: center;
+  font-size: 10px;
+  color: rgba(255, 255, 255, 0.3);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  padding: 10px 0 6px;
+  border-top: 1px solid rgba(201, 168, 76, 0.12);
+  margin-top: 10px;
+}
+
+/* ============================================================
+   ADMONITIONS — CAIXAS DE ALERTA/NOTA
+   ============================================================ */
+.md-typeset .admonition,
+.md-typeset details {
+  border-radius: 0 4px 4px 0;
+}
+
+.md-typeset .admonition.note > .admonition-title,
+.md-typeset .admonition.info > .admonition-title {
+  background-color: rgba(19, 81, 180, 0.12);
+}
+
+.md-typeset .admonition.warning > .admonition-title,
+.md-typeset .admonition.caution > .admonition-title {
+  background-color: rgba(201, 168, 76, 0.12);
+}
+
+/* ============================================================
+   BADGES DE STATUS (usados no roadmap)
+   ============================================================ */
+.md-typeset .status-done    { color: #168821; font-weight: 700; }
+.md-typeset .status-planned { color: #C9A84C; font-weight: 600; }
+.md-typeset .status-wip     { color: #1351B4; font-weight: 600; }
+
+/* ============================================================
+   RESPONSIVIDADE — MOBILE
+   ============================================================ */
+@media screen and (max-width: 76.1875em) {
+  .md-nav--primary .md-nav__title {
+    background-color: #071D41 !important;
+    color: #FFFFFF !important;
+  }
+}
