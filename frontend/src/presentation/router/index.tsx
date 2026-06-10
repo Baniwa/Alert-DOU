@@ -6,6 +6,7 @@ import { EditionDetailPage } from '../pages/EditionDetail/EditionDetailPage'
 import { SummariesPage } from '../pages/Summaries/SummariesPage'
 import { RadarPage } from '../pages/Radar/RadarPage'
 import { AlertsPage } from '../pages/Alerts/AlertsPage'
+import { NotFoundPage } from '../pages/NotFound/NotFoundPage'
 
 export const router = createBrowserRouter([
   {
@@ -18,6 +19,7 @@ export const router = createBrowserRouter([
       { path: 'summaries', element: <SummariesPage /> },
       { path: 'radar', element: <RadarPage /> },
       { path: 'alerts', element: <AlertsPage /> },
+      { path: '*', element: <NotFoundPage /> },
     ],
   },
 ])
