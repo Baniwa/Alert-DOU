@@ -26,7 +26,7 @@ jobs:
         run: pytest tests/ -v --tb=short
 
       - name: Audit Python dependencies for known CVEs
-        run: pip-audit --strict
+        run: pip-audit --strict --skip-editable
         continue-on-error: false
 
   test-frontend:
