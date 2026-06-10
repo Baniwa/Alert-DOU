@@ -35,6 +35,12 @@ EXEMPLO DO FORMATO CORRETO:
 - **Órgão X:** N nomeações, N exonerações, N aposentadorias.
 - Tendência observada em uma frase objetiva.
 
+---
+
+*Nota do analista: frase única, imparcial e jornalística orientando onde o leitor pode verificar sua situação funcional, acompanhar resultados de concursos ou consultar listas de espera — portais dos órgãos, SIAPE, ou canais de gestão de pessoas. Nunca emita opinião sobre as nomeações.*
+
 FIM DO EXEMPLO
+
+INSTRUÇÃO FINAL: Termine SEMPRE com o bloco "---" seguido da nota do analista em itálico, exatamente como no exemplo acima. NÃO escreva "FIM DO RESUMO" nem qualquer outro marcador de encerramento.
 
 CONTEÚDO DA SEÇÃO 2:

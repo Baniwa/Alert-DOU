@@ -13,11 +13,15 @@
 
 Lista todas as edições coletadas, com filtro opcional por data de publicação.
 
+**Rate Limit:** 60 requisições por minuto por IP.
+
 **Parâmetros de Query**
 
 | Nome | Tipo | Obrigatório | Descrição |
 |------|------|-------------|-----------|
 | `pub_date` | `date` (YYYY-MM-DD) | Não | Filtra edições por data de publicação |
+| `limit` | `int` (1–500) | Não | Máximo de resultados (padrão: 100) |
+| `offset` | `int` (≥0) | Não | Paginação (padrão: 0) |
 
 **Respostas**
 
@@ -221,6 +225,15 @@ Accept: application/json
 
 Lista todos os resumos IA gerados, em ordem decrescente de data. Inclui metadados da edição associada.
 
+**Rate Limit:** 60 requisições por minuto por IP.
+
+**Parâmetros de Query**
+
+| Nome | Tipo | Obrigatório | Descrição |
+|------|------|-------------|-----------|
+| `limit` | `int` (1–500) | Não | Máximo de resultados (padrão: 100) |
+| `offset` | `int` (≥0) | Não | Paginação (padrão: 0) |
+
 **Respostas**
 
 | Código | Descrição |
@@ -247,6 +260,55 @@ Accept: application/json
     "created_at": "2026-05-29T10:32:15.123456+00:00"
   }
 ]
+```
+
+---
+
+### `GET /summaries/search`
+
+Busca resumos IA por texto — nome, CPF, órgão ou qualquer trecho.  
+Usado pelo **Name Tracker** para encontrar menções nos resumos gerados.
+
+**Rate Limit:** 20 requisições por minuto por IP (proteção contra enumeração de nomes/CPFs).
+
+**Parâmetros de Query**
+
+| Nome | Tipo | Obrigatório | Descrição |
+|------|------|-------------|-----------|
+| `q` | `string` (2–100 chars) | Sim | Texto a buscar (nome, CPF, órgão) |
+| `limit` | `int` (1–50) | Não | Máximo de resultados (padrão: 20) |
+
+**Segurança**
+- CPF no parâmetro `q` é detectado e redactado como `[CPF]` nos logs de auditoria antes de persistir.
+- Busca usa `ILIKE` parametrizado — imune a SQL injection.
+
+**Respostas**
+
+| Código | Descrição |
+|--------|-----------|
+| `200 OK` | Lista de resumos onde o texto aparece |
+| `422 Unprocessable Entity` | `q` ausente, menor que 2 ou maior que 100 chars |
+| `429 Too Many Requests` | Rate limit excedido |
+
+**Exemplo**
+
+```http
+GET /summaries/search?q=João+da+Silva&limit=10
+Accept: application/json
+```
+
+---
+
+### `GET /editions/dates`
+
+Lista todas as datas que possuem edições no banco, em ordem decrescente. Usado pelo frontend para popular o seletor de datas disponíveis.
+
+**Rate Limit:** 30 requisições por minuto por IP.
+
+**Resposta**
+
+```json
+["2026-06-02", "2026-05-30", "2026-05-29"]
 ```
 
 ---
@@ -281,23 +343,32 @@ class SummaryOut(BaseModel):
 
 ---
 
+## Security Headers
+
+Todos os responses incluem os seguintes headers de segurança (middleware global):
+
+| Header | Valor |
+|--------|-------|
+| `X-Content-Type-Options` | `nosniff` |
+| `X-Frame-Options` | `DENY` |
+| `Referrer-Policy` | `strict-origin-when-cross-origin` |
+
+---
+
 ## Endpoints Planejados (Fases Futuras)
 
 | Método | Caminho | Fase | Descrição |
 |--------|---------|------|-----------|
-| `GET` | `/editions/{id}/articles` | 5 | Artigos indexados |
-| `POST` | `/alerts/` | 5 | Criar alerta de nome |
-| `GET` | `/alerts/` | 5 | Listar alertas do usuário |
-| `DELETE` | `/alerts/{id}` | 5 | Remover alerta |
-| `POST` | `/auth/register` | 8 | Registro de usuário |
-| `POST` | `/auth/token` | 8 | Login (JWT) |
+| `POST` | `/auth/register` | 9 | Registro de usuário |
+| `POST` | `/auth/token` | 9 | Login (JWT) |
 
 ---
 
 ## Limites e Observações
 
-- **Paginação**: não implementada no MVP. Todas as edições são retornadas de uma vez.
+- **Paginação**: implementada via `limit`/`offset` em todos os endpoints de listagem.
 - **Cache de resumos**: resumos IA são persistidos no banco (`ai_summaries`) — segunda chamada retorna instantaneamente sem custo de API Gemini.
-- **Rate Limiting**: ativo em `/editions/{id}/summary` (30/min por IP via SlowAPI). Protege contra Denial-of-Wallet na API do Gemini.
-- **Autenticação**: o MVP é público (sem autenticação). JWT será adicionado na Fase 8.
-- **CORS**: origens permitidas configuráveis via `CORS_ORIGINS` no `.env`. Headers restritos a `Content-Type` e `Authorization`.
+- **Rate Limiting**: ativo em todos os endpoints via SlowAPI (por IP). Protege contra Denial-of-Wallet na API do Gemini.
+- **SSRF Protection**: `pdf_url` de edições é validada contra allowlist de hosts antes de qualquer download (`www.in.gov.br`, `in.gov.br`, `pesquisa.in.gov.br`, `download.in.gov.br`).
+- **Autenticação**: o MVP é público (dados públicos). JWT planejado para Fase 9.
+- **CORS**: origens permitidas configuráveis via `CORS_ORIGINS` no `.env`.

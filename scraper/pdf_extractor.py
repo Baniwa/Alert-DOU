@@ -7,7 +7,7 @@ import pdfplumber
 logger = logging.getLogger(__name__)
 
 _MAX_PAGES = 8
-_REQUEST_TIMEOUT = 60
+_REQUEST_TIMEOUT = 180
 _HEADERS = {
     "User-Agent": (
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
@@ -20,7 +20,7 @@ _HEADERS = {
 }
 
 
-_ALLOWED_HOSTS = {"www.in.gov.br", "in.gov.br", "pesquisa.in.gov.br"}
+_ALLOWED_HOSTS = {"www.in.gov.br", "in.gov.br", "pesquisa.in.gov.br", "download.in.gov.br"}
 
 def _validate_pdf_url(url: str) -> None:
     from urllib.parse import urlparse

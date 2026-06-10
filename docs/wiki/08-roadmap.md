@@ -91,18 +91,23 @@ A arquitetura é projetada para suportar essa expansão: novos scrapers são ape
 
 ---
 
-### ⏳ Fase 5 — Name Tracker
+### 🔄 Fase 5 — Name Tracker (MVP entregue, v2 planejada)
 
 **Objetivo:** Permitir que usuários cadastrem nomes/CPFs para monitoramento no DOU.
 
-**Critérios de conclusão:**
+**MVP entregue (frontend localStorage + search API):**
+- ✅ Página `/alerts` — cadastro de nomes/CPFs no browser (localStorage)
+- ✅ `GET /summaries/search?q=nome` — busca por texto nos resumos IA
+- ✅ Validação de CPF (formato + dígitos repetidos), sanitização de input, limite 100 chars
+- ✅ CPF redactado como `[CPF]` nos logs de auditoria
+- ✅ Rate limit 20/min no endpoint de busca
+
+**V2 planejada (requer autenticação):**
 - [ ] Indexação de artigos individuais (tabela `articles`)
-- [ ] API: `POST /alerts/`, `GET /alerts/`, `DELETE /alerts/{id}`
-- [ ] Match exato por string no corpo do artigo
-- [ ] Match fuzzy (tolerância a variações de nome)
-- [ ] Tabela `name_occurrences` registra cada match com referência ao artigo
-- [ ] Notificação: webhook ou e-mail (escolha pendente)
-- [ ] Testes: busca exata, busca fuzzy, zero falsos negativos em casos conhecidos
+- [ ] Alertas persistidos no servidor (requer Fase 9 — Auth)
+- [ ] Match fuzzy com tolerância a variações de nome
+- [ ] Notificação: e-mail ou webhook quando match encontrado
+- [ ] Tabela `name_occurrences` com referências a artigos
 
 ---
 
@@ -150,20 +155,21 @@ A arquitetura é projetada para suportar essa expansão: novos scrapers são ape
 - React 19 + TypeScript + Tailwind CSS + Vite
 - Clean Architecture + DDD no frontend (`domain/`, `application/`, `infrastructure/`, `presentation/`)
 - Identidade visual baseada no **design system gov.br** (azul `#1351B4`, verde `#168821`)
-- **HomePage**: navegação por dia útil, seletor de data, grid de seções, banner de publicação
-- **EditionDetailPage**: layout two-column, metadados + PDF link + painel de resumo IA
-- **SummariesPage**: histórico de todos os resumos gerados, agrupados por edição
-- **SummaryPanel**: estados idle/loading/error/display, renderização de Markdown com `react-markdown`
-- **AppLayout**: sidebar gov.br com ícone institucional (Landmark), top bar decorativa
-- **EditionCard**: cards com cores por seção, hover animations
-- TanStack Query: `staleTime: Infinity` para resumos (imutáveis após geração)
-- Rate limit 503 tratado no frontend com mensagem específica sobre API key
+- **HomePage** ("Jornal do Dia"): 3 colunas automáticas (Seção 1/2/3), resumo IA ou CTA de geração, navegação por data
+- **EditionsPage** (`/editions`): lista de edições com navegação por dia útil e seletor de datas disponíveis
+- **RadarPage** (`/radar`): monitoramento de concursos por keywords — localStorage + busca nos resumos
+- **AlertsPage** (`/alerts`): Name Tracker — CPF/nome com validação, busca via API
+- **EditionDetailPage**: metadados + PDF link + painel de resumo IA (auto-carrega se já em cache)
+- **SummariesPage**: histórico de resumos com filtro por seção (usa `detectSection`)
+- **SummaryPanel**: share, download, marca-texto com toolbar flutuante, `rehype-raw` + `rehype-sanitize`
+- **AppLayout**: sidebar gov.br — Jornal do Dia / Edições / Resumos IA / Radar / Name Tracker
+- TanStack Query: cache compartilhado — `['summaries']` evita requests redundantes entre páginas
+- Mensagens de erro contextuais: "Link do PDF expirou" com explicação e retry
 
 **Dívida técnica:**
 - Sem Error Boundary global (erro em componente pode derrubar a app)
-- Sem testes de componentes (Vitest + Testing Library)
+- Sem testes de componentes (Vitest + Testing Library — apenas `useHighlights.test.ts` coberto)
 - Sem i18n (interface em PT-BR hardcoded)
-- Páginas "Alertas" e "Documentação" marcadas como "Em breve"
 
 ---
 
@@ -189,18 +195,20 @@ A arquitetura é projetada para suportar essa expansão: novos scrapers são ape
 |------|---------|--------|
 | ~~Alembic não configurado~~ | ~~Alto — risco em produção~~ | ✅ Resolvido (Fase 6) |
 | ~~`create_tables()` no lifespan~~ | ~~Alto — conflito com Alembic~~ | ✅ Resolvido (Fase 6) |
-| ~~Sem rate limiting~~ | ~~Médio — Denial-of-Wallet~~ | ✅ Resolvido (Fase 4) |
+| ~~Sem rate limiting~~ | ~~Médio — Denial-of-Wallet~~ | ✅ Resolvido (Fase 4+8) |
 | ~~CORS headers com `*`~~ | ~~Baixo (segurança)~~ | ✅ Resolvido (Fase 4) |
 | ~~Sem Docker completo~~ | ~~Alto — ambiente inconsistente~~ | ✅ Resolvido (Fase 6) |
 | ~~Sem worker automático~~ | ~~Alto — scraping manual~~ | ✅ Resolvido (Fase 7) |
-| Sem testes (unitários / integração) | Alto — regressões não detectadas | Fase 9 |
-| Sem paginação na API | Médio — crescerá com o volume | Fase 9 |
+| ~~Sem paginação na API~~ | ~~Médio — crescerá com o volume~~ | ✅ Resolvido (Fase 8) |
+| ~~SSRF no download de PDFs~~ | ~~Alto — fetch de URLs arbitrárias~~ | ✅ Resolvido (Fase 8) |
+| ~~Credencial hardcoded no docker-compose~~ | ~~Médio — senha visível no repo~~ | ✅ Resolvido (Fase 8) |
+| ~~Sem security headers~~ | ~~Baixo~~ | ✅ Resolvido (Fase 8) |
+| Testes de componentes frontend | Médio — regressões visuais | Fase 9 |
 | Scraper síncrono | Médio — bloqueia thread | Fase 9 |
 | Sem retry no scraper | Médio — falha silenciosa | Fase 9 |
 | Redis não utilizado para cache | Baixo — já provisionado | Fase 9 |
-| Sem autenticação | Baixo (dados públicos) | Fase 8+ |
+| Sem autenticação | Baixo (dados públicos) | Fase 9 |
 | Sem Error Boundary no frontend | Médio — UX degradada em erro | Fase 9 |
-| Sem `.env.example` | Baixo — onboarding | Pendente |
 
 ---
 

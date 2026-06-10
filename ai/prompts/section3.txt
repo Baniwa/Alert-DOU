@@ -34,6 +34,12 @@ EXEMPLO DO FORMATO CORRETO:
 
 - **Irregularidade/Rescisão/Penalidade (Órgão):** descrição objetiva do problema ou dispensa.
 
+---
+
+*Nota do analista: frase única, imparcial e jornalística indicando onde acompanhar a execução dos contratos ou denunciar irregularidades — Portal da Transparência, CGU, TCU ou canais de ouvidoria dos órgãos contratantes. Nunca emita julgamento sobre as empresas ou órgãos.*
+
 FIM DO EXEMPLO
+
+INSTRUÇÃO FINAL: Termine SEMPRE com o bloco "---" seguido da nota do analista em itálico, exatamente como no exemplo acima. NÃO escreva "FIM DO RESUMO" nem qualquer outro marcador de encerramento.
 
 CONTEÚDO DA SEÇÃO 3:
