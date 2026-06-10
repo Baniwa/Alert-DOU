@@ -1,41 +1,33 @@
-FROM python:3.12-slim AS base
+FROM python:3.12-slim
 
-ENV PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1 \
-    PIP_NO_CACHE_DIR=1
+# Dependências de sistema para compilação Python (psycopg2)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    libpq-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Cria usuário não-root e diretório dedicado para os binários do Playwright
+RUN useradd -m appuser && mkdir /ms-playwright && chown appuser:appuser /ms-playwright
 
 WORKDIR /app
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    gcc libpq-dev \
-    && rm -rf /var/lib/apt/lists/*
+# Instala dependências Python como root (precisa de acesso a compilação)
+COPY pyproject.toml ./
+RUN pip install --no-cache-dir --upgrade pip && pip install --no-cache-dir .
 
-COPY pyproject.toml .
-RUN pip install -e .
+# Instala as libs de sistema do Playwright (apt, requer root)
+RUN playwright install-deps chromium
 
+# A partir daqui tudo roda como appuser
+ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
+USER appuser
 
-# ── API stage ────────────────────────────────────────────────
-FROM base AS api
+# Baixa o binário do Chromium no diretório controlado pelo appuser
+RUN playwright install chromium
 
-COPY . .
+# Copia o código com ownership correto
+COPY --chown=appuser:appuser . /app
+COPY --chown=appuser:appuser --chmod=755 entrypoint.sh /app/entrypoint.sh
 
-EXPOSE 8000
+ENTRYPOINT ["/app/entrypoint.sh"]
 CMD ["uvicorn", "api.main:app", "--host", "0.0.0.0", "--port", "8000"]
-
-
-# ── Worker stage ─────────────────────────────────────────────
-FROM base AS worker
-
-RUN playwright install chromium --with-deps
-
-COPY . .
-
-CMD ["celery", "-A", "workers.celery_app", "worker", "--loglevel=info", "--concurrency=2"]
-
-
-# ── Beat stage (scheduler) ───────────────────────────────────
-FROM base AS beat
-
-COPY . .
-
-CMD ["celery", "-A", "workers.celery_app", "beat", "--loglevel=info"]

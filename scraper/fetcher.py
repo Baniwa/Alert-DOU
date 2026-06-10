@@ -162,10 +162,13 @@ def save_editions(editions: list[dict]) -> int:
         return 0
 
     with get_session() as session:
-        stmt   = pg_insert(Edition).values(rows).on_conflict_do_nothing(
-            constraint="uq_edition_per_day"
+        stmt = pg_insert(Edition).values(rows)
+        stmt = stmt.on_conflict_do_update(
+            constraint="uq_edition_per_day",
+            set_={"pdf_url": stmt.excluded.pdf_url}
         )
         result = session.execute(stmt)
+        session.commit()
         return result.rowcount
 
 

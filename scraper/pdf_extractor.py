@@ -1,7 +1,7 @@
 import io
 import logging
 
-import httpx
+from curl_cffi import requests
 import pdfplumber
 
 logger = logging.getLogger(__name__)
@@ -20,11 +20,34 @@ _HEADERS = {
 }
 
 
+_ALLOWED_HOSTS = {"www.in.gov.br", "in.gov.br", "pesquisa.in.gov.br"}
+
+def _validate_pdf_url(url: str) -> None:
+    from urllib.parse import urlparse
+    parsed = urlparse(url)
+    if parsed.scheme not in ("http", "https"):
+        raise ValueError(f"PDF URL scheme not allowed: {parsed.scheme!r}")
+    if parsed.hostname not in _ALLOWED_HOSTS:
+        raise ValueError(f"PDF URL host not allowed: {parsed.hostname!r}")
+
+
 def _download_pdf(pdf_url: str) -> bytes:
-    """Download PDF using HTTP/2 to match the DOU server's WAF requirements."""
-    with httpx.Client(http2=True, timeout=_REQUEST_TIMEOUT) as client:
-        response = client.get(pdf_url, headers=_HEADERS, follow_redirects=True)
-        response.raise_for_status()
+    """Download PDF using curl_cffi to match the DOU server's WAF requirements."""
+    _validate_pdf_url(pdf_url)
+    with requests.Session(impersonate="chrome", timeout=_REQUEST_TIMEOUT) as client:
+        response = client.get(pdf_url, headers=_HEADERS)
+
+    if response.status_code != 200:
+        raise RuntimeError(f"Failed to download PDF. HTTP {response.status_code}")
+
+    # DOU server returns HTTP 200 with an HTML expiration page when a signed URL
+    # expires. Validate the PDF magic bytes before handing to pdfplumber.
+    if not response.content.startswith(b"%PDF"):
+        content_type = response.headers.get("content-type", "unknown")
+        raise RuntimeError(
+            f"Server returned non-PDF content (content-type: {content_type}). "
+            "The signed URL has likely expired."
+        )
 
     logger.info("Downloaded %d bytes (%s)", len(response.content), pdf_url[:80])
     return response.content

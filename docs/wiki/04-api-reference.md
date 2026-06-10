@@ -167,12 +167,125 @@ with httpx.Client() as client:
 
 ---
 
+---
+
+### `GET /editions/{edition_id}/summary`
+
+Retorna o resumo executivo de uma edição gerado pelo Gemini. Na primeira chamada, baixa o PDF, envia para a IA e persiste o resultado. Chamadas subsequentes retornam o resumo em cache do banco.
+
+**Parâmetros de Path**
+
+| Nome | Tipo | Descrição |
+|------|------|-----------|
+| `edition_id` | `int` | ID da edição |
+
+**Rate Limit:** 30 requisições por minuto por IP.
+
+**Respostas**
+
+| Código | Descrição |
+|--------|-----------|
+| `200 OK` | Resumo gerado ou recuperado do cache |
+| `404 Not Found` | Edição não existe |
+| `422 Unprocessable Entity` | Edição não possui `pdf_url` |
+| `429 Too Many Requests` | Rate limit excedido |
+| `502 Bad Gateway` | Falha ao baixar PDF da Imprensa Nacional (tentativa de re-scrape automático também falhou) |
+| `503 Service Unavailable` | `GEMINI_API_KEY` não configurada |
+| `500 Internal Server Error` | Erro interno na sumarização com IA |
+
+**Exemplo**
+
+```http
+GET /editions/42/summary
+Accept: application/json
+```
+
+```json
+{
+  "id": 7,
+  "edition_id": 42,
+  "edition_number": "98",
+  "edition_title": "Diário Oficial da União - Seção 1",
+  "model": "gemini-3.5-flash",
+  "summary": "## Resumo da Seção 1 — Atos Normativos\n\n**Decretos e Portarias...**",
+  "pages_read": 8,
+  "created_at": "2026-05-29T10:32:15.123456+00:00"
+}
+```
+
+**Comportamento de re-scrape:** Se o link do PDF expirou (erro de download), o endpoint tenta automaticamente re-fazer o scraping da edição para obter um link atualizado antes de retornar o erro 502.
+
+---
+
+### `GET /summaries/`
+
+Lista todos os resumos IA gerados, em ordem decrescente de data. Inclui metadados da edição associada.
+
+**Respostas**
+
+| Código | Descrição |
+|--------|-----------|
+| `200 OK` | Lista de resumos (pode ser vazia `[]`) |
+
+**Exemplo**
+
+```http
+GET /summaries/
+Accept: application/json
+```
+
+```json
+[
+  {
+    "id": 7,
+    "edition_id": 42,
+    "edition_number": "98",
+    "edition_title": "Diário Oficial da União - Seção 1",
+    "model": "gemini-3.5-flash",
+    "summary": "## Resumo...",
+    "pages_read": 8,
+    "created_at": "2026-05-29T10:32:15.123456+00:00"
+  }
+]
+```
+
+---
+
+### `GET /health`
+
+Health check para orquestradores (Docker, Kubernetes). Retorna `200 OK` se a API está de pé.
+
+**Resposta**
+
+```json
+{ "status": "ok" }
+```
+
+---
+
+## Schema `SummaryOut`
+
+```python
+class SummaryOut(BaseModel):
+    id: int
+    edition_id: int
+    edition_number: str | None = None   # via relationship com Edition
+    edition_title: str | None = None    # via relationship com Edition
+    model: str
+    summary: str
+    pages_read: int
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+```
+
+---
+
 ## Endpoints Planejados (Fases Futuras)
 
 | Método | Caminho | Fase | Descrição |
 |--------|---------|------|-----------|
-| `GET` | `/editions/{id}/summary` | 4 | Resumo IA da edição |
-| `GET` | `/editions/{id}/articles` | 4 | Artigos indexados |
+| `GET` | `/editions/{id}/articles` | 5 | Artigos indexados |
 | `POST` | `/alerts/` | 5 | Criar alerta de nome |
 | `GET` | `/alerts/` | 5 | Listar alertas do usuário |
 | `DELETE` | `/alerts/{id}` | 5 | Remover alerta |
@@ -183,7 +296,8 @@ with httpx.Client() as client:
 
 ## Limites e Observações
 
-- **Paginação**: não implementada no MVP. Todas as edições são retornadas de uma vez. Será necessária na Fase 3+ quando o volume de dados crescer.
-- **Cache**: Redis está provisionado mas não utilizado na API. Cache de 5 minutos por `pub_date` será adicionado na Fase 7.
-- **Autenticação**: o MVP é público (sem autenticação). JWT será adicionado na Fase 8 junto com o sistema de alertas pessoais.
-- **Rate Limiting**: não implementado. Será necessário antes do deploy público (Fase 9).
+- **Paginação**: não implementada no MVP. Todas as edições são retornadas de uma vez.
+- **Cache de resumos**: resumos IA são persistidos no banco (`ai_summaries`) — segunda chamada retorna instantaneamente sem custo de API Gemini.
+- **Rate Limiting**: ativo em `/editions/{id}/summary` (30/min por IP via SlowAPI). Protege contra Denial-of-Wallet na API do Gemini.
+- **Autenticação**: o MVP é público (sem autenticação). JWT será adicionado na Fase 8.
+- **CORS**: origens permitidas configuráveis via `CORS_ORIGINS` no `.env`. Headers restritos a `Content-Type` e `Authorization`.

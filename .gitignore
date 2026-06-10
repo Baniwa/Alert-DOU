@@ -29,3 +29,20 @@ Thumbs.db
 # Playwright
 playwright-report/
 test-results/
+
+# MkDocs generated output
+site/
+
+# Node / Frontend
+frontend/node_modules/
+frontend/dist/
+
+# Testing & Coverage
+.pytest_cache/
+.coverage
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+
+# Personal notes
+PLANO_DE_ESTUDOS.txt

@@ -1,0 +1,16 @@
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+venv/
+.env
+.env.*
+!.env.example
+debug_*.html
+debug_*.png
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+test-results/
+playwright-report/

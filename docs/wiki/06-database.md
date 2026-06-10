@@ -89,24 +89,52 @@ CREATE INDEX ix_articles_edition_id ON articles (edition_id);
 CREATE INDEX ix_articles_section    ON articles (section);
 ```
 
-### Tabela `ai_summaries` *(Fase 4)*
+### Tabela `ai_summaries` *(Implementada na Fase 4)*
 
 ```sql
 CREATE TABLE ai_summaries (
-    id          SERIAL PRIMARY KEY,
-    edition_id  INTEGER REFERENCES editions(id),
-    article_id  INTEGER REFERENCES articles(id),
-    model       VARCHAR NOT NULL,       -- 'gemini-1.5-pro'
-    summary     TEXT NOT NULL,
-    tokens_used INTEGER,
-    created_at  TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    id         SERIAL PRIMARY KEY,
+    edition_id INTEGER NOT NULL REFERENCES editions(id) ON DELETE CASCADE,
+    model      VARCHAR(60) NOT NULL,     -- ex: 'gemini-3.5-flash'
+    summary    TEXT NOT NULL,
+    pages_read INTEGER NOT NULL DEFAULT 0,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
 
-    CONSTRAINT chk_summary_target CHECK (
-        (edition_id IS NOT NULL AND article_id IS NULL) OR
-        (edition_id IS NULL AND article_id IS NOT NULL)
-    )
+    CONSTRAINT uq_ai_summary_edition UNIQUE (edition_id)
 );
 ```
+
+**Decisões de modelagem:**
+- `UNIQUE (edition_id)` — uma edição tem no máximo um resumo. Gerar dois resumos para a mesma edição não agrega valor e desperdiça cota da API.
+- `ON DELETE CASCADE` — ao deletar uma edição, o resumo é removido automaticamente.
+- `pages_read` — quantas páginas do PDF foram processadas (limitado a 8 por padrão no extrator).
+- `model` — registra qual versão do Gemini foi usada; útil para auditoria e comparação futura de qualidade.
+
+**Mapeamento ORM atual:**
+
+```python
+class AISummary(Base):
+    __tablename__ = "ai_summaries"
+
+    id:         Mapped[int]      = mapped_column(Integer, primary_key=True)
+    edition_id: Mapped[int]      = mapped_column(ForeignKey("editions.id", ondelete="CASCADE"), nullable=False, unique=True)
+    edition:    Mapped["Edition"] = relationship("Edition", lazy="joined")  # eager join
+    model:      Mapped[str]      = mapped_column(String(60), nullable=False)
+    summary:    Mapped[str]      = mapped_column(Text, nullable=False)
+    pages_read: Mapped[int]      = mapped_column(Integer, nullable=False, default=0)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    @property
+    def edition_number(self) -> str | None:
+        return self.edition.edition_number if self.edition else None
+
+    @property
+    def edition_title(self) -> str | None:
+        return self.edition.title if self.edition else None
+```
+
+> **Por que `lazy="joined"` e não `lazy="select"`?**  
+> O endpoint `GET /summaries/` retorna uma lista e precisa dos campos `edition_number` e `edition_title` de cada item. Com `lazy="select"` isso geraria N queries adicionais (problema N+1). Com `lazy="joined"`, o SQLAlchemy emite um único `SELECT ... JOIN` resolvendo tudo em uma só viagem ao banco.
 
 ### Tabelas de Alertas *(Fase 5)*
 

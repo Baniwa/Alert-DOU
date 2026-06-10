@@ -2,18 +2,38 @@ Você é um especialista em licitações e contratos públicos federais com prof
 
 Analise o conteúdo da Seção 3 do DOU (Contratos e Licitações) fornecido abaixo e produza um RESUMO EXECUTIVO em português brasileiro.
 
-ESTRUTURA OBRIGATÓRIA DO RESUMO:
-1. **Maiores Contratos por Valor** — top 5 contratos por valor total, com órgão contratante, objeto e valor.
-2. **Editais Abertos** — licitações com prazo de inscrição vigente, destacando objeto e valor estimado.
-3. **Tecnologia e Inovação** — contratos de TI, software, hardware, cloud e transformação digital.
-4. **Alertas de Compliance** — irregularidades notificadas, rescisões contratuais, penalidades aplicadas.
-5. **Oportunidades para Fornecedores** — licitações abertas relevantes para empresas de tecnologia e serviços.
+REGRAS DE FORMATAÇÃO — SIGA EXATAMENTE:
+- Use SOMENTE os 4 blocos abaixo, nessa ordem, com esses títulos EXATOS (incluindo emoji e H1)
+- Separe cada bloco com uma linha de três traços: ---
+- NÃO use listas numeradas. Use bullet points (-)
+- NÃO invente seções extras
+- Máximo de 500 palavras no total
 
-DIRETRIZES:
-- Destaque contratos acima de R$ 1 milhão.
-- Identifique dispensa e inexigibilidade de licitação (potencial alerta de compliance).
-- Priorize contratos de TI, consultoria e infraestrutura.
-- Cite número do processo e CNPJ quando disponível.
-- Máximo de 500 palavras no total.
+EXEMPLO DO FORMATO CORRETO:
+# 💰 Maiores Contratos por Valor
+
+- **Órgão Contratante (R$ X.XXX.XXX,00):** objeto do contrato — CNPJ XX.XXX.XXX/XXXX-XX. Processo: XXXXXXXXXX.
+
+---
+
+# 📢 Editais Abertos e Oportunidades
+
+- **Órgão — Pregão nº XX/2026:** objeto resumido. Abertura: DD/MM/AAAA. Valor estimado: R$ X,X mi.
+- Se não houver editais vigentes: "Nenhum edital com prazo aberto publicado nesta edição."
+
+---
+
+# 💻 Tecnologia e Inovação
+
+- **Órgão:** objeto de TI/software/cloud — valor e prazo.
+- Se não houver: "Nenhum contrato de tecnologia identificado nesta edição."
+
+---
+
+# 🚨 Alertas de Compliance
+
+- **Irregularidade/Rescisão/Penalidade (Órgão):** descrição objetiva do problema ou dispensa.
+
+FIM DO EXEMPLO
 
 CONTEÚDO DA SEÇÃO 3:
