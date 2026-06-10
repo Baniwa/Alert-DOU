@@ -1,4 +1,4 @@
-import { format, isWeekend, subDays } from 'date-fns'
+import { format, isWeekend, subDays, subMonths } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
 import { Calendar, ChevronLeft, ChevronRight, FileText, Layers, Scale, Users, Sparkles, ArrowRight } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
@@ -214,6 +214,8 @@ export function HomePage() {
 
   const today = lastWorkday()
   const isToday = format(date, 'yyyy-MM-dd') === format(today, 'yyyy-MM-dd')
+  // Limit home navigation to the last 30 days — older dates are accessible via /editions
+  const minDate = subMonths(today, 1)
 
   const { data: editions, isLoading, isError } = useEditions(date)
   const { data: allSummaries } = useQuery({
@@ -235,6 +237,20 @@ export function HomePage() {
     document.addEventListener('mousedown', handler)
     return () => document.removeEventListener('mousedown', handler)
   }, [])
+
+  // Auto-redirect to most recent available date when:
+  // - User opened the app without a date param (portfolio "live" link)
+  // - Today/last workday has no editions yet (scraper hasn't run)
+  // - There is at least one date with data in the DB
+  useEffect(() => {
+    const hasManualDate = !!searchParams.get('date')
+    const todayIsEmpty = !isLoading && !isError && editions?.length === 0
+    const fallback = availableDates?.[0]
+
+    if (!hasManualDate && todayIsEmpty && fallback) {
+      setSearchParams({ date: format(fallback, 'yyyy-MM-dd') }, { replace: true })
+    }
+  }, [isLoading, isError, editions, availableDates, searchParams, setSearchParams])
 
   const summaryByEditionId = useMemo(() => {
     if (!allSummaries) return {} as Record<number, AISummary>
@@ -270,7 +286,8 @@ export function HomePage() {
           <div className="flex items-center gap-1.5 flex-wrap">
             <button
               onClick={() => setDate(prevWorkday(date))}
-              className="w-9 h-9 flex items-center justify-center rounded-lg border border-gray-300 bg-white text-gray-600 hover:border-[#1351B4] hover:text-[#1351B4] hover:shadow-sm transition-all"
+              disabled={format(prevWorkday(date), 'yyyy-MM-dd') < format(minDate, 'yyyy-MM-dd')}
+              className="w-9 h-9 flex items-center justify-center rounded-lg border border-gray-300 bg-white text-gray-600 hover:border-[#1351B4] hover:text-[#1351B4] hover:shadow-sm transition-all disabled:opacity-40 disabled:cursor-not-allowed"
             >
               <ChevronLeft size={16} />
             </button>
@@ -278,6 +295,7 @@ export function HomePage() {
             <input
               type="date"
               value={format(date, 'yyyy-MM-dd')}
+              min={format(minDate, 'yyyy-MM-dd')}
               max={format(today, 'yyyy-MM-dd')}
               onChange={(e) => e.target.value && setDate(new Date(e.target.value + 'T00:00:00'))}
               className="h-9 px-3 text-[13px] font-semibold bg-white border border-gray-300 rounded-lg text-gray-800 focus:outline-none focus:border-[#1351B4] transition-colors cursor-pointer"
@@ -305,7 +323,7 @@ export function HomePage() {
                     {availableDates?.length ?? 0} datas no banco
                   </p>
                   <ul className="max-h-72 overflow-y-auto divide-y divide-gray-100">
-                    {availableDates?.map((d) => {
+                    {availableDates?.filter((d) => d >= minDate).map((d) => {
                       const key = format(d, 'yyyy-MM-dd')
                       const selected = key === format(date, 'yyyy-MM-dd')
                       return (
@@ -319,9 +337,18 @@ export function HomePage() {
                         </li>
                       )
                     })}
-                    {!availableDates?.length && (
-                      <li className="px-4 py-4 text-[13px] text-gray-400 text-center">Nenhuma data encontrada</li>
+                    {!availableDates?.filter((d) => d >= minDate).length && (
+                      <li className="px-4 py-4 text-[13px] text-gray-400 text-center">Nenhuma data recente</li>
                     )}
+                    <li className="px-4 py-2.5 border-t border-gray-100">
+                      <Link
+                        to="/editions"
+                        onClick={() => setShowDates(false)}
+                        className="text-[12px] font-bold text-[#1351B4] hover:underline"
+                      >
+                        Ver arquivo completo →
+                      </Link>
+                    </li>
                   </ul>
                 </div>
               )}

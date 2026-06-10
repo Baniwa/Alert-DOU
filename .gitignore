@@ -12,6 +12,7 @@ build/
 .env
 .env.*
 !.env.example
+!frontend/.env.production
 
 # Debug files
 debug_*.html
