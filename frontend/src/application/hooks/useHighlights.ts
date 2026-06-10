@@ -63,21 +63,15 @@ export function useHighlights(editionId: number) {
   return { phrases, add, remove, clear }
 }
 
-/**
- * Pre-processes markdown by wrapping highlighted phrases with <mark> tags.
- * Phrases are HTML-escaped before insertion — safe for use with rehype-raw.
- */
 export function applyHighlightsToMarkdown(markdown: string, phrases: string[]): string {
   if (!phrases.length) return markdown
   let result = markdown
   for (const phrase of phrases) {
-    // Escape HTML special chars in the phrase text itself (incl. " to protect data attributes)
     const escaped = phrase
       .replace(/&/g, '&amp;')
       .replace(/</g, '&lt;')
       .replace(/>/g, '&gt;')
       .replace(/"/g, '&quot;')
-    // Escape regex metacharacters for matching
     const pattern = phrase.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
     result = result.replace(
       new RegExp(pattern, 'gi'),

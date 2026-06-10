@@ -44,7 +44,6 @@ export function SummaryPanel({ editionId, summary, isLoading, isError, error, on
   const [requestTranslation, setRequestTranslation] = useState(false)
   const [toolbar, setToolbar] = useState<SelectionToolbar | null>(null)
 
-  // Translation query — enabled only after user clicks EN, uses DB cache when available
   const {
     data: translatedSummary,
     isLoading: isTranslating,
@@ -57,7 +56,6 @@ export function SummaryPanel({ editionId, summary, isLoading, isError, error, on
     retry: false,
   })
 
-  // If the PT summary already has a cached EN translation, pre-populate
   const initialEn = summary?.summaryEn ?? null
 
   const activeSummaryText = lang === 'en'
@@ -75,7 +73,6 @@ export function SummaryPanel({ editionId, summary, isLoading, isError, error, on
   const proseRef = useRef<HTMLDivElement>(null)
   const { phrases, add, remove, clear } = useHighlights(editionId)
 
-  // Detect text selection inside the prose container
   useEffect(() => {
     function handleMouseUp(e: MouseEvent) {
       const selection = window.getSelection()
@@ -86,7 +83,6 @@ export function SummaryPanel({ editionId, summary, isLoading, isError, error, on
         return
       }
 
-      // Only show toolbar if selection is inside our prose container
       if (!proseRef.current) return
       const range = selection!.getRangeAt(0)
       if (!proseRef.current.contains(range.commonAncestorContainer)) {
@@ -103,7 +99,6 @@ export function SummaryPanel({ editionId, summary, isLoading, isError, error, on
       })
     }
 
-    // Click outside prose clears toolbar
     function handleMouseDown(e: MouseEvent) {
       if (proseRef.current && !proseRef.current.contains(e.target as Node)) {
         setToolbar(null)
@@ -118,7 +113,6 @@ export function SummaryPanel({ editionId, summary, isLoading, isError, error, on
     }
   }, [])
 
-  // Remove highlight when user clicks on a <mark> element
   function handleProseClick(e: React.MouseEvent) {
     const target = e.target as HTMLElement
     if (target.tagName === 'MARK') {
@@ -151,8 +145,6 @@ export function SummaryPanel({ editionId, summary, isLoading, isError, error, on
     URL.revokeObjectURL(url)
   }
 
-  // ── Loading ──────────────────────────────────────────────────────────────
-
   if (isLoading) {
     return (
       <div className="border border-gray-200 rounded-lg p-6 bg-gray-50 shadow-sm">
@@ -173,8 +165,6 @@ export function SummaryPanel({ editionId, summary, isLoading, isError, error, on
       </div>
     )
   }
-
-  // ── Error ─────────────────────────────────────────────────────────────────
 
   if (isError) {
     const is503 = apiError?.status === 503
@@ -208,8 +198,6 @@ export function SummaryPanel({ editionId, summary, isLoading, isError, error, on
     )
   }
 
-  // ── Empty ─────────────────────────────────────────────────────────────────
-
   if (!summary) {
     return (
       <div className="border border-dashed border-gray-300 rounded-lg p-8 text-center bg-gray-50">
@@ -226,21 +214,17 @@ export function SummaryPanel({ editionId, summary, isLoading, isError, error, on
     )
   }
 
-  // ── Summary ───────────────────────────────────────────────────────────────
-
   const processedMarkdown = applyHighlightsToMarkdown(activeSummaryText, phrases)
 
   return (
     <div className="border border-gray-200 rounded-xl overflow-hidden shadow-sm bg-white">
 
-      {/* Header bar */}
       <div className="flex items-center justify-between px-5 py-3 bg-gray-50 border-b border-gray-200">
         <div className="flex items-center gap-2">
           <span className="text-xs font-extrabold text-[#1351B4] uppercase tracking-wider">
             Resumo Executivo — IA
           </span>
 
-          {/* Language toggle */}
           <button
             onClick={handleToggleLang}
             disabled={isTranslating}
@@ -289,7 +273,6 @@ export function SummaryPanel({ editionId, summary, isLoading, isError, error, on
         </div>
       </div>
 
-      {/* Highlight hint */}
       {phrases.length === 0 && (
         <div className="flex items-center gap-2 px-5 py-2 bg-amber-50 border-b border-amber-100">
           <Highlighter size={12} className="text-amber-500 flex-shrink-0" />
@@ -299,7 +282,6 @@ export function SummaryPanel({ editionId, summary, isLoading, isError, error, on
         </div>
       )}
 
-      {/* Prose content */}
       <div className="p-8 relative">
         <div
           ref={proseRef}
@@ -311,7 +293,6 @@ export function SummaryPanel({ editionId, summary, isLoading, isError, error, on
           </ReactMarkdown>
         </div>
 
-        {/* Floating selection toolbar */}
         {toolbar && (
           <div
             className="absolute z-20 flex items-center gap-1 bg-gray-900 text-white rounded-lg shadow-xl px-2 py-1.5 text-[11px] font-bold -translate-x-1/2 -translate-y-full pointer-events-auto"

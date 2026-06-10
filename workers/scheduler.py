@@ -19,12 +19,10 @@ def run_scraper():
     except Exception as e:
         logger.error(f"Error running scraper: {e}", exc_info=True)
 
-# Schedule to run every day at 08:00 AM
 schedule.every().day.at("08:00").do(run_scraper)
 
 if __name__ == "__main__":
     logger.info("Starting scheduler. Scraper will run daily at 08:00 AM.")
-    # Run once at startup
     run_scraper()
     
     while True:

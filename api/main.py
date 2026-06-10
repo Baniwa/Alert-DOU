@@ -20,8 +20,6 @@ from api.routes import router, summary_router
 configure_logging()
 logger = logging.getLogger(__name__)
 
-# ── Environment ───────────────────────────────────────────────────────────────
-
 _ENV = os.environ.get("ENVIRONMENT", "development")
 _IS_PROD = _ENV == "production"
 
@@ -33,8 +31,6 @@ _CORS_ORIGINS = [
     ).split(",")
     if o.strip()
 ]
-
-# ── App ───────────────────────────────────────────────────────────────────────
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -57,10 +53,7 @@ app = FastAPI(
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
-# ── Middlewares ───────────────────────────────────────────────────────────────
-
 class RequestSizeLimitMiddleware(BaseHTTPMiddleware):
-    """Reject bodies over 64 KB — API only accepts query params, no large payloads."""
     MAX_BYTES = 64 * 1024
 
     async def dispatch(self, request: Request, call_next):
@@ -75,8 +68,6 @@ class RequestSizeLimitMiddleware(BaseHTTPMiddleware):
 
 
 class RequestLoggingMiddleware(BaseHTTPMiddleware):
-    """Assign a request ID to every request and log method/path/status/duration."""
-
     async def dispatch(self, request: Request, call_next):
         request_id = uuid.uuid4().hex[:8]
         request_id_var.set(request_id)
@@ -111,8 +102,6 @@ app.add_middleware(
     allow_headers=["Content-Type", "Authorization"],
 )
 
-# ── Exception handlers ────────────────────────────────────────────────────────
-
 @app.exception_handler(RequestValidationError)
 async def validation_error_handler(request: Request, exc: RequestValidationError):
     logger.warning("validation_error", extra={"errors": exc.errors(), "path": request.url.path})
@@ -132,8 +121,6 @@ async def unhandled_exception_handler(request: Request, exc: Exception):
     return JSONResponse(status_code=500, content={"detail": "Internal server error."})
 
 
-# ── Security headers ──────────────────────────────────────────────────────────
-
 @app.middleware("http")
 async def security_headers(request: Request, call_next):
     response: Response = await call_next(request)
@@ -147,8 +134,6 @@ async def security_headers(request: Request, call_next):
         response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains; preload"
     return response
 
-
-# ── Routes ────────────────────────────────────────────────────────────────────
 
 app.include_router(router)
 app.include_router(summary_router)
