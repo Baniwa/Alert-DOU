@@ -8,7 +8,7 @@ on:
 
 jobs:
   test-backend:
-    name: Backend tests
+    name: Backend — tests + security scan
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -20,13 +20,17 @@ jobs:
           cache: pip
 
       - name: Install dependencies
-        run: pip install -e ".[dev]"
+        run: pip install -e ".[dev]" pip-audit
 
       - name: Run tests
         run: pytest tests/ -v --tb=short
 
+      - name: Audit Python dependencies for known CVEs
+        run: pip-audit --require-hashes=false --strict
+        continue-on-error: false
+
   test-frontend:
-    name: Frontend type-check & tests
+    name: Frontend — type-check, tests + security scan
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -49,3 +53,7 @@ jobs:
 
       - name: Run tests
         run: npx vitest run --reporter=verbose
+
+      - name: Audit npm dependencies for known CVEs
+        run: npm audit --audit-level=high
+        continue-on-error: false
