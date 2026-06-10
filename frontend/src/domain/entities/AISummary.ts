@@ -5,6 +5,7 @@ export interface AISummary {
   readonly editionTitle?: string
   readonly model: string
   readonly summary: string
+  readonly summaryEn?: string | null
   readonly pagesRead: number
   readonly createdAt: Date
 }

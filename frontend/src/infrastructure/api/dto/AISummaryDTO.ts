@@ -6,6 +6,7 @@ export interface AISummaryDTO {
   edition_title?: string
   model: string
   summary: string
+  summary_en?: string | null
   pages_read: number
   created_at: string   // ISO 8601 datetime
 }
