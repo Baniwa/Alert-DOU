@@ -5,11 +5,15 @@ const MAX_PHRASE_LENGTH = 300
 const MAX_HIGHLIGHTS_PER_EDITION = 50
 
 // Allowed chars: letters (incl. accented), digits, spaces and basic punctuation.
-// Rejects anything that could be an HTML injection attempt.
 const SAFE_PHRASE_RE = /^[\p{L}\p{N}\s.,;:()°%\-–—"'«»\/]+$/u
 
+export interface Highlight {
+  phrase: string
+  occurrenceIndex: number  // 0-based: which occurrence in the text to highlight
+}
+
 interface HighlightStore {
-  [editionId: number]: string[]
+  [editionId: number]: Highlight[]
 }
 
 function load(): HighlightStore {
@@ -27,25 +31,31 @@ function save(store: HighlightStore) {
 export function useHighlights(editionId: number) {
   const [store, setStore] = useState<HighlightStore>(load)
 
-  const phrases = store[editionId] ?? []
+  const highlights = store[editionId] ?? []
 
-  const add = useCallback((raw: string) => {
-    const phrase = raw.trim()
-    if (!phrase || phrase.length > MAX_PHRASE_LENGTH) return
-    if (!SAFE_PHRASE_RE.test(phrase)) return            // reject anything HTML-like
-    if (phrases.includes(phrase)) return                 // already highlighted
-    if (phrases.length >= MAX_HIGHLIGHTS_PER_EDITION) return
+  const add = useCallback((phrase: string, occurrenceIndex: number) => {
+    const trimmed = phrase.trim()
+    if (!trimmed || trimmed.length > MAX_PHRASE_LENGTH) return
+    if (!SAFE_PHRASE_RE.test(trimmed)) return
+    if (highlights.some((h) => h.phrase === trimmed)) return  // phrase already highlighted
+    if (highlights.length >= MAX_HIGHLIGHTS_PER_EDITION) return
 
     setStore((prev) => {
-      const next = { ...prev, [editionId]: [...(prev[editionId] ?? []), phrase] }
+      const next = {
+        ...prev,
+        [editionId]: [...(prev[editionId] ?? []), { phrase: trimmed, occurrenceIndex }],
+      }
       save(next)
       return next
     })
-  }, [editionId, phrases])
+  }, [editionId, highlights])
 
   const remove = useCallback((phrase: string) => {
     setStore((prev) => {
-      const next = { ...prev, [editionId]: (prev[editionId] ?? []).filter((p) => p !== phrase) }
+      const next = {
+        ...prev,
+        [editionId]: (prev[editionId] ?? []).filter((h) => h.phrase !== phrase),
+      }
       save(next)
       return next
     })
@@ -60,34 +70,59 @@ export function useHighlights(editionId: number) {
     })
   }, [editionId])
 
-  return { phrases, add, remove, clear }
+  return { highlights, add, remove, clear }
 }
 
-export function applyHighlightsToMarkdown(markdown: string, phrases: string[]): string {
-  if (!phrases.length) return markdown
+export function applyHighlightsToMarkdown(markdown: string, highlights: Highlight[]): string {
+  if (!highlights.length) return markdown
 
-  // Split into text tokens and tag tokens so we never touch HTML attributes or
-  // content that is already inside a <mark> element.
+  // Split into HTML-tag tokens and text tokens so we never modify inside existing
+  // <mark> elements or inside attribute values.
   const tokens = markdown.split(/(<[^>]+>)/)
 
-  for (const phrase of phrases) {
+  for (const { phrase, occurrenceIndex } of highlights) {
     const escaped = phrase
       .replace(/&/g, '&amp;')
       .replace(/</g, '&lt;')
       .replace(/>/g, '&gt;')
       .replace(/"/g, '&quot;')
     const pattern = phrase.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-    const re = new RegExp(pattern, 'gi')
 
-    let depth = 0
-    for (let i = 0; i < tokens.length; i++) {
+    let globalCount = 0  // counts occurrences seen so far across all text tokens
+    let markDepth = 0
+    let replaced = false
+
+    for (let i = 0; i < tokens.length && !replaced; i++) {
       const t = tokens[i]
       if (t.startsWith('<')) {
-        if (/^<mark\b/i.test(t)) depth++
-        else if (/^<\/mark>/i.test(t)) depth--
-      } else if (depth === 0) {
-        tokens[i] = t.replace(re, `<mark class="highlight-mark" data-phrase="${escaped}">${escaped}</mark>`)
+        if (/^<mark\b/i.test(t)) markDepth++
+        else if (/^<\/mark>/i.test(t)) markDepth--
+        continue
       }
+      if (markDepth > 0) continue  // skip text inside existing marks
+
+      // Walk through matches in this token, replace only the target occurrence
+      const re = new RegExp(pattern, 'gi')
+      let result = ''
+      let lastIndex = 0
+      let match: RegExpExecArray | null
+
+      while ((match = re.exec(t)) !== null) {
+        result += t.slice(lastIndex, match.index)
+        if (globalCount === occurrenceIndex) {
+          result += `<mark class="highlight-mark" data-phrase="${escaped}">${escaped}</mark>`
+          result += t.slice(match.index + match[0].length)
+          lastIndex = t.length
+          replaced = true
+          break
+        } else {
+          result += match[0]
+          globalCount++
+        }
+        lastIndex = match.index + match[0].length
+      }
+      result += t.slice(lastIndex)
+      tokens[i] = result
     }
   }
 

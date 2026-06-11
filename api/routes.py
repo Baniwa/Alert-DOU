@@ -123,8 +123,7 @@ def get_edition_summary_en(edition_id: int, request: Request):
             raise HTTPException(status_code=500, detail="Internal server error during translation")
 
         cached.summary_en = summary_en
-        session.commit()
-        session.refresh(cached)
+        session.commit()  # expire_on_commit=False keeps the object + joined edition in memory
         return cached
 
 

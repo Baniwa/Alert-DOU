@@ -1,6 +1,6 @@
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
-import { Check, Download, Share2, Highlighter, Trash2, Languages, Loader2 } from 'lucide-react'
+import { Check, Download, Share2, Highlighter, Trash2, Languages, Loader2, X } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
@@ -12,7 +12,6 @@ import { ApiError } from '../../../../infrastructure/api/client'
 import { fetchEditionSummaryEn } from '../../../../infrastructure/api/editions.api'
 import { useHighlights, applyHighlightsToMarkdown } from '../../../../application/hooks/useHighlights'
 
-// Allow <mark> with our highlight attributes; block everything else not in defaultSchema
 const sanitizeSchema = {
   ...defaultSchema,
   tagNames: [...(defaultSchema.tagNames ?? []), 'mark'],
@@ -35,6 +34,7 @@ interface SelectionToolbar {
   x: number
   y: number
   phrase: string
+  occurrenceIndex: number
 }
 
 export function SummaryPanel({ editionId, summary, isLoading, isError, error, onGenerate }: Props) {
@@ -52,7 +52,7 @@ export function SummaryPanel({ editionId, summary, isLoading, isError, error, on
     queryKey: ['summary-en', editionId],
     queryFn: () => fetchEditionSummaryEn(editionId),
     enabled: requestTranslation && !!summary,
-    staleTime: Infinity,  // translations are immutable once generated
+    staleTime: Infinity,
     retry: false,
   })
 
@@ -70,11 +70,12 @@ export function SummaryPanel({ editionId, summary, isLoading, isError, error, on
       setLang('pt')
     }
   }
+
   const proseRef = useRef<HTMLDivElement>(null)
-  const { phrases, add, remove, clear } = useHighlights(editionId)
+  const { highlights, add, remove, clear } = useHighlights(editionId)
 
   useEffect(() => {
-    function handleMouseUp(e: MouseEvent) {
+    function handleMouseUp() {
       const selection = window.getSelection()
       const phrase = selection?.toString().trim() ?? ''
 
@@ -90,12 +91,28 @@ export function SummaryPanel({ editionId, summary, isLoading, isError, error, on
         return
       }
 
+      // Calculate which occurrence was selected by counting how many times
+      // the phrase appears in the text before the selection start.
+      const preRange = document.createRange()
+      preRange.setStart(proseRef.current, 0)
+      preRange.setEnd(range.startContainer, range.startOffset)
+      const preText = preRange.toString()
+      const lowerPhrase = phrase.toLowerCase()
+      const lowerPre = preText.toLowerCase()
+      let occurrenceIndex = 0
+      let pos = lowerPre.indexOf(lowerPhrase)
+      while (pos !== -1) {
+        occurrenceIndex++
+        pos = lowerPre.indexOf(lowerPhrase, pos + 1)
+      }
+
       const rect = range.getBoundingClientRect()
       const containerRect = proseRef.current.getBoundingClientRect()
       setToolbar({
         x: rect.left - containerRect.left + rect.width / 2,
         y: rect.top - containerRect.top - 8,
         phrase,
+        occurrenceIndex,
       })
     }
 
@@ -123,7 +140,7 @@ export function SummaryPanel({ editionId, summary, isLoading, isError, error, on
 
   function handleHighlight() {
     if (!toolbar) return
-    add(toolbar.phrase)
+    add(toolbar.phrase, toolbar.occurrenceIndex)
     window.getSelection()?.removeAllRanges()
     setToolbar(null)
   }
@@ -214,11 +231,13 @@ export function SummaryPanel({ editionId, summary, isLoading, isError, error, on
     )
   }
 
-  const processedMarkdown = applyHighlightsToMarkdown(activeSummaryText, phrases)
+  const processedMarkdown = applyHighlightsToMarkdown(activeSummaryText, highlights)
+  const alreadyHighlighted = toolbar ? highlights.some((h) => h.phrase === toolbar.phrase) : false
 
   return (
     <div className="border border-gray-200 rounded-xl overflow-hidden shadow-sm bg-white">
 
+      {/* Header bar */}
       <div className="flex items-center justify-between px-5 py-3 bg-gray-50 border-b border-gray-200">
         <div className="flex items-center gap-2">
           <span className="text-xs font-extrabold text-[#1351B4] uppercase tracking-wider">
@@ -235,9 +254,7 @@ export function SummaryPanel({ editionId, summary, isLoading, isError, error, on
                 : 'bg-white text-gray-500 border-gray-200 hover:border-[#1351B4] hover:text-[#1351B4]'
             } disabled:opacity-50 disabled:cursor-not-allowed`}
           >
-            {isTranslating
-              ? <Loader2 size={11} className="animate-spin" />
-              : <Languages size={11} />}
+            {isTranslating ? <Loader2 size={11} className="animate-spin" /> : <Languages size={11} />}
             {lang === 'en' ? 'EN' : 'PT'}
           </button>
 
@@ -253,19 +270,8 @@ export function SummaryPanel({ editionId, summary, isLoading, isError, error, on
             className="w-7 h-7 flex items-center justify-center rounded text-gray-400 hover:text-[#1351B4] hover:bg-gray-100 transition-colors">
             <Download size={14} />
           </button>
-          {phrases.length > 0 && (
-            <button onClick={clear} title="Limpar todos os destaques"
-              className="w-7 h-7 flex items-center justify-center rounded text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors">
-              <Trash2 size={13} />
-            </button>
-          )}
         </div>
         <div className="flex items-center gap-3">
-          {phrases.length > 0 && (
-            <span className="text-[10px] font-bold text-amber-600 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full">
-              {phrases.length} destaque{phrases.length > 1 ? 's' : ''}
-            </span>
-          )}
           <span className="text-[11px] font-medium text-gray-500 bg-gray-200 px-2 py-0.5 rounded">{summary.model}</span>
           <span className="text-[11px] font-medium text-gray-500">
             {summary.pagesRead} págs. · {format(summary.createdAt, "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
@@ -273,15 +279,45 @@ export function SummaryPanel({ editionId, summary, isLoading, isError, error, on
         </div>
       </div>
 
-      {phrases.length === 0 && (
+      {/* Highlights manager */}
+      {highlights.length > 0 ? (
+        <div className="flex items-center gap-2 px-5 py-2 bg-amber-50 border-b border-amber-100 flex-wrap">
+          <Highlighter size={12} className="text-amber-500 flex-shrink-0" />
+          <span className="text-[10px] font-bold text-amber-700 uppercase tracking-wide mr-1">Destaques:</span>
+          {highlights.map((h) => (
+            <span
+              key={h.phrase}
+              className="inline-flex items-center gap-1 px-2 py-0.5 bg-yellow-200 text-gray-800 text-[11px] font-medium rounded-full"
+            >
+              {h.phrase.length > 30 ? `${h.phrase.slice(0, 30)}…` : h.phrase}
+              <button
+                onClick={() => remove(h.phrase)}
+                className="hover:text-red-600 transition-colors ml-0.5"
+                title="Remover destaque"
+              >
+                <X size={10} />
+              </button>
+            </span>
+          ))}
+          <button
+            onClick={clear}
+            className="ml-auto text-[10px] font-bold text-amber-700 hover:text-red-600 transition-colors flex items-center gap-1"
+            title="Limpar todos"
+          >
+            <Trash2 size={10} />
+            Limpar tudo
+          </button>
+        </div>
+      ) : (
         <div className="flex items-center gap-2 px-5 py-2 bg-amber-50 border-b border-amber-100">
           <Highlighter size={12} className="text-amber-500 flex-shrink-0" />
           <p className="text-[11px] text-amber-700">
-            Selecione qualquer trecho do texto para destacá-lo como marca-texto.
+            Selecione um trecho para destacá-lo. Clique no destaque para removê-lo.
           </p>
         </div>
       )}
 
+      {/* Content */}
       <div className="p-8 relative">
         <div
           ref={proseRef}
@@ -295,16 +331,20 @@ export function SummaryPanel({ editionId, summary, isLoading, isError, error, on
 
         {toolbar && (
           <div
-            className="absolute z-20 flex items-center gap-1 bg-gray-900 text-white rounded-lg shadow-xl px-2 py-1.5 text-[11px] font-bold -translate-x-1/2 -translate-y-full pointer-events-auto"
+            className="absolute z-20 flex items-center gap-1.5 bg-gray-900 text-white rounded-lg shadow-xl px-2.5 py-1.5 text-[11px] font-bold -translate-x-1/2 -translate-y-full pointer-events-auto"
             style={{ left: toolbar.x, top: toolbar.y }}
           >
-            <Highlighter size={12} className="text-yellow-300" />
-            <button
-              onMouseDown={(e) => { e.preventDefault(); handleHighlight() }}
-              className="hover:text-yellow-300 transition-colors whitespace-nowrap"
-            >
-              Destacar trecho
-            </button>
+            <Highlighter size={12} className="text-yellow-300 flex-shrink-0" />
+            {alreadyHighlighted ? (
+              <span className="text-gray-400">Já destacado</span>
+            ) : (
+              <button
+                onMouseDown={(e) => { e.preventDefault(); handleHighlight() }}
+                className="hover:text-yellow-300 transition-colors whitespace-nowrap"
+              >
+                Destacar trecho
+              </button>
+            )}
           </div>
         )}
       </div>
