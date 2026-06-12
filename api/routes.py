@@ -295,6 +295,12 @@ def get_edition_summary(edition_id: int, request: Request):
             select(AISummary).where(AISummary.edition_id == edition_id)
         )
         if cached:
+            if not edition.full_text and edition.pdf_url:
+                try:
+                    pdf_text, _ = extract_pdf_text(edition.pdf_url)
+                    edition.full_text = pdf_text
+                except Exception:
+                    pass  # best-effort — don't break summary response
             return cached
 
         if not edition.pdf_url:

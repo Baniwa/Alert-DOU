@@ -115,7 +115,8 @@ export function AlertsPage() {
         <AlertCircle size={14} className="mt-0.5 flex-shrink-0 text-amber-500" />
         <p>
           Os dados são armazenados <strong>apenas no seu navegador</strong> (localStorage) e nunca enviados para servidores externos.
-          A busca consulta somente resumos já gerados pela IA — não o texto integral do DOU.
+          A busca percorre o <strong>texto integral dos PDFs</strong> do DOU — muito mais precisa que buscar só nos resumos IA.
+          O texto é indexado automaticamente quando um resumo é gerado pela primeira vez.
         </p>
       </div>
 

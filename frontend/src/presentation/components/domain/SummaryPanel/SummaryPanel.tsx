@@ -27,6 +27,7 @@ interface Props {
   isLoading: boolean
   isError: boolean
   error: unknown
+  retryCount?: number
   onGenerate: () => void
 }
 
@@ -37,7 +38,7 @@ interface SelectionToolbar {
   occurrenceIndex: number
 }
 
-export function SummaryPanel({ editionId, summary, isLoading, isError, error, onGenerate }: Props) {
+export function SummaryPanel({ editionId, summary, isLoading, isError, error, retryCount = 0, onGenerate }: Props) {
   const apiError = error instanceof ApiError ? error : null
   const [copied, setCopied] = useState(false)
   const [lang, setLang] = useState<'pt' | 'en'>('pt')
@@ -174,12 +175,13 @@ export function SummaryPanel({ editionId, summary, isLoading, isError, error, on
   }
 
   if (isLoading) {
+    const isRetrying = retryCount > 0
     return (
       <div className="border border-gray-200 rounded-lg p-6 bg-gray-50 shadow-sm">
         <div className="flex items-center gap-3 mb-4">
           <div className="w-2 h-2 rounded-full bg-[#1351B4] animate-pulse" />
           <span className="text-sm font-bold text-[#1351B4] uppercase tracking-wider">
-            Analisando edição...
+            {isRetrying ? `Tentando novamente... (${retryCount}/5)` : 'Analisando edição...'}
           </span>
         </div>
         <div className="space-y-3">
@@ -188,7 +190,9 @@ export function SummaryPanel({ editionId, summary, isLoading, isError, error, on
           ))}
         </div>
         <p className="mt-5 text-xs text-gray-500 font-medium">
-          Baixando PDF e gerando resumo com inteligência artificial — pode levar até 3 minutos para edições grandes.
+          {isRetrying
+            ? 'Falha na última tentativa — reconectando automaticamente com a API.'
+            : 'Baixando PDF e gerando resumo com inteligência artificial — pode levar até 3 minutos para edições grandes.'}
         </p>
       </div>
     )

@@ -132,6 +132,7 @@ export function EditionDetailPage() {
             isLoading={summaryQuery.isLoading}
             isError={summaryQuery.isError}
             error={summaryQuery.error}
+            retryCount={summaryQuery.failureCount}
             onGenerate={() => setSummaryEnabled(true)}
           />
         </div>
