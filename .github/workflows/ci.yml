@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [main, "feature/**"]
+    branches: [main, "feature/**", "fix/**", "chore/**"]
   pull_request:
     branches: [main]
 
@@ -51,8 +51,11 @@ jobs:
       - name: Type check
         run: npx tsc --noEmit
 
-      - name: Run tests
-        run: npx vitest run --reporter=verbose
+      - name: Lint
+        run: npm run lint
+
+      - name: Build
+        run: npm run build
 
       - name: Audit npm dependencies for known CVEs
         run: npm audit --audit-level=high
