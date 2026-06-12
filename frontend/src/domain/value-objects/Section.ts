@@ -1,9 +1,11 @@
-export enum Section {
-  SECTION_1 = 'secao1',
-  SECTION_2 = 'secao2',
-  SECTION_3 = 'secao3',
-  EXTRA = 'extra',
-}
+export type Section = 'secao1' | 'secao2' | 'secao3' | 'extra'
+
+export const Section = {
+  SECTION_1: 'secao1',
+  SECTION_2: 'secao2',
+  SECTION_3: 'secao3',
+  EXTRA: 'extra',
+} as const satisfies Record<string, Section>
 
 export const SECTION_LABELS: Record<Section, string> = {
   [Section.SECTION_1]: 'Seção 1 — Atos Normativos',

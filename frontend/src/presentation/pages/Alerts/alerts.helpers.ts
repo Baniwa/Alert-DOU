@@ -7,7 +7,7 @@ function normaliseCPF(value: string): string {
 }
 
 function isCPF(value: string): boolean {
-  return /^\d{3}[\.\s]?\d{3}[\.\s]?\d{3}[\-\s]?\d{2}$/.test(value.trim())
+  return /^\d{3}[.\s]?\d{3}[.\s]?\d{3}[-\s]?\d{2}$/.test(value.trim())
 }
 
 function sanitise(value: string): string {

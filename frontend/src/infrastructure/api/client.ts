@@ -6,7 +6,6 @@ export const apiClient = axios.create({
   timeout: 30_000,
 })
 
-// Global error normalisation — future: attach JWT here
 apiClient.interceptors.response.use(
   (res) => res,
   (err) => {
@@ -17,8 +16,10 @@ apiClient.interceptors.response.use(
 )
 
 export class ApiError extends Error {
-  constructor(public readonly status: number, message: string) {
+  readonly status: number
+  constructor(status: number, message: string) {
     super(message)
+    this.status = status
     this.name = 'ApiError'
   }
 }

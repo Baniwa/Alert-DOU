@@ -1,4 +1,4 @@
-import { BookOpen, Bell, LayoutDashboard, Sparkles, ExternalLink, Landmark, Radar, Newspaper } from 'lucide-react'
+import { BookOpen, Bell, LayoutDashboard, Sparkles, ExternalLink, Landmark, Radar, Newspaper, Info, Star } from 'lucide-react'
 import { NavLink, Outlet } from 'react-router-dom'
 import { useNameAlerts } from '../../application/hooks/useNameAlerts'
 import { loadNames } from '../pages/Alerts/alerts.helpers'
@@ -11,6 +11,7 @@ const NAV = [
   { to: '/summaries', icon: Sparkles, label: 'Resumos IA' },
   { to: '/radar', icon: Radar, label: 'Radar' },
   { to: '/alerts', icon: Bell, label: 'Name Tracker' },
+  { to: '/about', icon: Info, label: 'Sobre' },
   { to: `${API_BASE}/docs`, icon: BookOpen, label: 'Documentação', external: true },
 ]
 
@@ -89,6 +90,18 @@ export function AppLayout() {
           )}
         </nav>
 
+        <div className="px-3 pb-2">
+          <a
+            href="https://github.com/Baniwa/Alert-DOU"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-2 w-full px-3 py-2 rounded-lg bg-[#FFCD00]/10 border border-[#FFCD00]/30 hover:bg-[#FFCD00]/20 transition-colors group"
+          >
+            <Star size={13} className="text-[#FFCD00] group-hover:fill-[#FFCD00] transition-all flex-shrink-0" />
+            <span className="text-[11px] font-bold text-[#FFCD00]">Star no GitHub</span>
+          </a>
+        </div>
+
         {/* Footer */}
         <div className="px-4 py-4 border-t border-white/10 space-y-2 bg-[#0C326F]">
           <a
@@ -106,7 +119,6 @@ export function AppLayout() {
 
       {/* ── MAIN ── */}
       <div className="flex-1 flex flex-col overflow-hidden relative">
-        {/* Subtle top decoration for main area */}
         <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-[#1351B4] via-[#168821] to-[#FFCD00]" />
         
         <main className="flex-1 overflow-y-auto px-10 py-10">

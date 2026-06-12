@@ -85,7 +85,7 @@ interface SectionColumnProps {
 }
 
 function SectionColumn({ section, edition, existingSummary }: SectionColumnProps) {
-  const cfg = SECTION_CONFIG[section]
+  const cfg = SECTION_CONFIG[section as keyof typeof SECTION_CONFIG]
   const Icon = cfg.icon
   const [shouldGenerate, setShouldGenerate] = useState(false)
 

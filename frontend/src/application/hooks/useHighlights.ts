@@ -5,7 +5,7 @@ const MAX_PHRASE_LENGTH = 300
 const MAX_HIGHLIGHTS_PER_EDITION = 50
 
 // Allowed chars: letters (incl. accented), digits, spaces and basic punctuation.
-const SAFE_PHRASE_RE = /^[\p{L}\p{N}\s.,;:()°%\-–—"'«»\/]+$/u
+const SAFE_PHRASE_RE = /^[\p{L}\p{N}\s.,;:()°%\-–—"'«»/]+$/u
 
 export interface Highlight {
   phrase: string
