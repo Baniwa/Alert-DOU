@@ -15,7 +15,12 @@ export function AlertsPage() {
   const [inputError, setInputError] = useState('')
   const queryClient = useQueryClient()
 
-  const { alerts, isLoading, namesWithAlerts } = useNameAlerts(tracked)
+  const { alerts: rawAlerts, isLoading, namesWithAlerts } = useNameAlerts(tracked)
+
+  const alerts = [...rawAlerts].sort((a, b) => {
+    if (a.isLoading || b.isLoading) return 0
+    return b.results.length - a.results.length
+  })
 
   function add() {
     const result = validateInput(input)
