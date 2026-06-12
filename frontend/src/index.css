@@ -1,6 +1,11 @@
 @import "tailwindcss";
 @plugin "@tailwindcss/typography";
 
+@keyframes calFadeIn {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
 :root {
   font-family: 'Inter', system-ui, 'Segoe UI', sans-serif;
   font-synthesis: none;
