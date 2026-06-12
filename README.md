@@ -1,11 +1,11 @@
 # Alert DOU — AI-Powered Monitor for Brazil's Official Gazette
 
-> Automated scraping, AI summarization and personal name tracking for the *Diário Oficial da União* — Brazil's federal government journal, published daily across hundreds of pages.
+> Automated scraping, AI summarisation and personal name tracking for the *Diário Oficial da União* — Brazil's federal government journal, published daily across hundreds of pages.
 
-[![CI](https://github.com/Baniwa/Alert-DOU/actions/workflows/ci.yml/badge.svg)](https://github.com/Baniwa/Alert-DOU/actions/workflows/ci.yml)
 [![Python](https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white)](https://python.org)
 [![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=black)](https://react.dev)
-[![FastAPI](https://img.shields.io/badge/FastAPI-0.115-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.136-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 ---
 
@@ -27,6 +27,10 @@ Each edition runs 300–600 pages. Roughly 220 editions are published per year. 
 - **Extracts text from PDFs** — each section is a signed PDF; the scraper downloads and parses them
 - **Summarises each section with Gemini Flash** — produces a concise, structured digest per edition
 - **Translates summaries to English on demand** — cached in the database after the first request
+- **Calendar date picker** — iPhone-style widget showing green dots on days with indexed editions; click any past weekday to navigate or trigger a live scrape
+- **On-demand scraping** — "Buscar no DOU" button fetches metadata for any unindexed date in ~20 s, without downloading PDFs or running AI
+- **Backfill system** — `POST /editions/backfill` queues lightweight metadata scrapes for a date range via Celery, covering the full history since January 2026
+- **Text highlights** — select any phrase in a summary to highlight it; persisted locally via localStorage
 - **Exposes a REST API** — paginated endpoints for editions, summaries and full-text search
 - **Serves a React frontend** — newspaper-style homepage with date navigation and section columns
 - **Name Tracker** — store a name or CPF locally; the app highlights any mention in AI summaries
@@ -40,13 +44,12 @@ Each edition runs 300–600 pages. Roughly 220 editions are published per year. 
 | Scraper | Playwright + playwright-stealth (headless Chromium, WAF bypass) |
 | PDF extraction | pdfplumber + curl-cffi (HTTP/2, Chrome impersonation) |
 | AI | Google Gemini Flash (summarisation + EN translation) |
-| API | FastAPI + Pydantic + slowapi (rate limiting) |
+| API | FastAPI 0.136 + Pydantic + slowapi (rate limiting) |
 | Task queue | Celery + Redis |
 | Database | PostgreSQL 16 + SQLAlchemy 2 + Alembic |
-| Frontend | React 19 + TypeScript + Tailwind CSS + Vite |
+| Frontend | React 19 + TypeScript + Tailwind CSS v4 + Vite |
+| State management | TanStack Query (React Query) |
 | Infrastructure | Docker Compose (4 services: api, worker, db, redis) |
-| Deploy | Railway (backend) + Vercel (frontend) |
-| CI | GitHub Actions (pytest + tsc + vitest + pip-audit + npm audit) |
 
 ---
 
@@ -54,7 +57,7 @@ Each edition runs 300–600 pages. Roughly 220 editions are published per year. 
 
 ```
 ┌──────────────────────────────────────────────────────────────┐
-│  Celery worker (daily schedule)                              │
+│  Celery worker (daily schedule + on-demand backfill)         │
 │    └─► Playwright scrapes pesquisa.in.gov.br                 │
 │          └─► PDFs downloaded from download.in.gov.br         │
 │                └─► pdfplumber extracts text                  │
@@ -64,12 +67,13 @@ Each edition runs 300–600 pages. Roughly 220 editions are published per year. 
              │
              ▼
 ┌──────────────────────┐       ┌──────────────────────────────┐
-│  FastAPI (REST API)  │◄─────►│  React frontend (Vercel)     │
-│  Railway             │       │  - Newspaper home (3 cols)   │
-│  /editions           │       │  - Section summaries         │
-│  /summaries/search   │       │  - PT/EN toggle              │
-│  /editions/{id}/sum… │       │  - Name Tracker (localStorage│
-└──────────────────────┘       └──────────────────────────────┘
+│  FastAPI (REST API)  │◄─────►│  React frontend              │
+│  :8000               │       │  - Newspaper home (3 cols)   │
+│  /editions           │       │  - Calendar date picker      │
+│  /summaries/search   │       │  - PT/EN summary toggle      │
+│  /editions/{id}/sum… │       │  - Text highlights           │
+└──────────────────────┘       │  - Name Tracker (localStorage│
+                               └──────────────────────────────┘
 ```
 
 ---
@@ -82,16 +86,33 @@ cd Alert-DOU
 
 cp .env.example .env          # set POSTGRES_PASSWORD and GEMINI_API_KEY
 
-docker compose up --build
+docker compose up -d          # API :8000 · DB :5432 · Redis :6379 · Worker
 ```
 
-The API is available at `http://localhost:8000`. The frontend dev server runs separately:
+The `docker-compose.override.yml` included in the repo mounts the source code into the container and starts uvicorn with `--reload`, so any Python change you make is reflected immediately without rebuilding the image.
+
+Start the frontend separately:
 
 ```bash
 cd frontend
 npm install
 npm run dev       # http://localhost:5173
 ```
+
+API docs are available at `http://localhost:8000/docs`.
+
+---
+
+## Environment Variables
+
+| Variable | Required | Description |
+|---|---|---|
+| `POSTGRES_PASSWORD` | ✅ | PostgreSQL password |
+| `GEMINI_API_KEY` | ✅ | Google AI Studio key — [get one free](https://aistudio.google.com/app/apikey) |
+| `POSTGRES_USER` | optional | Default: `alertdou` |
+| `POSTGRES_DB` | optional | Default: `alertdou` |
+| `CORS_ORIGINS` | optional | Comma-separated allowed origins. Default: `http://localhost:5173,http://localhost:4173` |
+| `ENVIRONMENT` | optional | Set to `production` to enable HSTS |
 
 ---
 
@@ -100,27 +121,31 @@ npm run dev       # http://localhost:5173
 | Method | Path | Description |
 |---|---|---|
 | GET | `/editions/` | List editions (paginated, filterable by date) |
-| GET | `/editions/dates` | List distinct publication dates |
+| GET | `/editions/dates` | List distinct publication dates with indexed data |
 | GET | `/editions/{id}` | Get a single edition |
 | GET | `/editions/{id}/summary` | Get or generate the Portuguese AI summary |
 | GET | `/editions/{id}/summary/en` | Get or generate the English translation |
+| POST | `/editions/fetch-date?date=YYYY-MM-DD` | Scrape a specific date synchronously (~20 s) |
+| POST | `/editions/backfill` | Queue metadata scrapes for a date range via Celery |
 | GET | `/summaries/` | List all summaries (paginated) |
 | GET | `/summaries/search?q=` | Full-text search across summaries |
 | GET | `/health` | Health check |
+| GET | `/docs` | Swagger UI |
 
-All endpoints are read-only. Rate limits are enforced per IP (10–60 req/min depending on cost).
+Rate limits are enforced per IP (3–60 req/min depending on endpoint cost).
 
 ---
 
 ## Security
 
 - **SSRF protection** — PDF downloads validated against an allowlist of `*.in.gov.br` hostnames
-- **PII redaction** — CPF patterns replaced with `[REDACTED]` in structured JSON logs before writing
+- **PII redaction** — CPF patterns replaced with `[CPF]` in structured logs before writing
 - **Security headers** — `X-Content-Type-Options`, `X-Frame-Options`, `COOP`, `CORP`, `Permissions-Policy`, `Referrer-Policy`, HSTS (production)
 - **Request size limit** — bodies over 64 KB rejected before routing
 - **No stack traces in production** — global exception handler returns generic 500
-- **API docs disabled in production** — `/docs`, `/redoc`, `/openapi.json` return 404
-- **Prompt injection guard** — translation prompt begins with an explicit instruction to ignore content-embedded instructions
+- **Prompt injection guard** — translation and summarisation prompts include explicit guards against content-embedded instructions
+
+See [SECURITY.md](SECURITY.md) to report a vulnerability.
 
 ---
 

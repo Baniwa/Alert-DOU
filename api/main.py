@@ -16,7 +16,6 @@ from api.limiter import limiter
 from api.logging_config import configure_logging, request_id_var
 from api.routes import router, summary_router
 
-# Configure structured JSON logging before anything else
 configure_logging()
 logger = logging.getLogger(__name__)
 
@@ -44,10 +43,9 @@ app = FastAPI(
     description="Real-time monitoring of Brazil's Diário Oficial da União.",
     version="0.1.0",
     lifespan=lifespan,
-    # Disable interactive docs in production — avoids exposing schema + try-it UI to attackers
-    docs_url=None if _IS_PROD else "/docs",
-    redoc_url=None if _IS_PROD else "/redoc",
-    openapi_url=None if _IS_PROD else "/openapi.json",
+    docs_url="/docs",
+    redoc_url="/redoc",
+    openapi_url="/openapi.json",
 )
 
 app.state.limiter = limiter
@@ -98,14 +96,13 @@ app.add_middleware(RequestLoggingMiddleware)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=_CORS_ORIGINS,
-    allow_methods=["GET"],
+    allow_methods=["GET", "POST"],
     allow_headers=["Content-Type", "Authorization"],
 )
 
 @app.exception_handler(RequestValidationError)
 async def validation_error_handler(request: Request, exc: RequestValidationError):
     logger.warning("validation_error", extra={"errors": exc.errors(), "path": request.url.path})
-    # In production return a generic message — never leak internal field names
     detail = exc.errors() if not _IS_PROD else "Invalid request parameters."
     return JSONResponse(status_code=422, content={"detail": detail})
 
@@ -117,7 +114,6 @@ async def unhandled_exception_handler(request: Request, exc: Exception):
         extra={"path": request.url.path, "method": request.method},
         exc_info=exc,
     )
-    # Never expose stack traces to the client
     return JSONResponse(status_code=500, content={"detail": "Internal server error."})
 
 
