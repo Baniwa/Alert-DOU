@@ -2,8 +2,8 @@ import logging
 import re
 from datetime import date, timedelta
 from fastapi import APIRouter, HTTPException, Query, Request
-from sqlalchemy import select
-from api.schemas import EditionOut, SummaryOut
+from sqlalchemy import func, select
+from api.schemas import EditionOut, EditionSearchResult, SummaryOut
 from database import Edition, get_session
 from database.models import AISummary
 from ai.client import GeminiClient, _detect_section
@@ -20,6 +20,59 @@ summary_router = APIRouter(prefix="/summaries", tags=["summaries"])
 
 # Regex para detectar CPF (com ou sem formatação) — usado para redação no log de auditoria
 _CPF_RE = re.compile(r'\b\d{3}[\.\s]?\d{3}[\.\s]?\d{3}[\-\s]?\d{2}\b')
+
+
+def _excerpt(text: str, query: str, window: int = 220) -> str:
+    pos = text.lower().find(query.lower())
+    if pos == -1:
+        return text[:window] + ("…" if len(text) > window else "")
+    start = max(0, pos - 120)
+    end = min(len(text), pos + len(query) + 100)
+    snippet = text[start:end]
+    return ("…" if start > 0 else "") + snippet + ("…" if end < len(text) else "")
+
+
+@router.get("/search", response_model=list[EditionSearchResult])
+@limiter.limit("20/minute")
+def search_editions(
+    request: Request,
+    q: str = Query(..., min_length=2, max_length=100),
+    limit: int = Query(default=20, le=50, ge=1),
+):
+    """Busca no texto integral dos PDFs do DOU (accent-insensitive via unaccent).
+
+    Ideal para o Name Tracker: encontra nomeações e exonerações mesmo sem resumo IA.
+    Retorna apenas edições cujo PDF já foi extraído (full_text preenchido).
+    """
+    query_clean = q.strip()
+    log_query = _CPF_RE.sub("[CPF]", query_clean)
+    logger.info("edition_search ip=%s q=%r", request.client.host, log_query[:50])
+
+    with get_session() as session:
+        pattern = f"%{query_clean}%"
+        stmt = (
+            select(Edition)
+            .where(Edition.full_text.isnot(None))
+            .where(
+                func.unaccent(func.lower(Edition.full_text)).like(
+                    func.unaccent(func.lower(pattern))
+                )
+            )
+            .order_by(Edition.pub_date.desc())
+            .limit(limit)
+        )
+        editions = session.scalars(stmt).all()
+
+    return [
+        EditionSearchResult(
+            edition_id=e.id,
+            title=e.title,
+            edition_number=e.edition_number,
+            pub_date=e.pub_date,
+            excerpt=_excerpt(e.full_text or "", query_clean),
+        )
+        for e in editions
+    ]
 
 
 @summary_router.get("/search", response_model=list[SummaryOut])
@@ -242,6 +295,12 @@ def get_edition_summary(edition_id: int, request: Request):
             select(AISummary).where(AISummary.edition_id == edition_id)
         )
         if cached:
+            if not edition.full_text and edition.pdf_url:
+                try:
+                    pdf_text, _ = extract_pdf_text(edition.pdf_url)
+                    edition.full_text = pdf_text
+                except Exception:
+                    pass  # best-effort — don't break summary response
             return cached
 
         if not edition.pdf_url:
@@ -252,18 +311,21 @@ def get_edition_summary(edition_id: int, request: Request):
         except Exception as exc:
             logger.warning(f"PDF extraction failed for edition {edition_id} (token probably expired): {exc}. Attempting to re-scrape...")
             try:
-                # Token expired, let's re-scrape the editions for that specific date to get fresh URLs
                 from scraper.fetcher import fetch_dou_today, save_editions
                 fresh_editions = fetch_dou_today(since=edition.pub_date)
                 if fresh_editions:
                     save_editions(fresh_editions)
-                    session.refresh(edition) # Reload to get the fresh pdf_url
+                    session.refresh(edition)
                     pdf_text, pages_read = extract_pdf_text(edition.pdf_url)
                 else:
                     raise RuntimeError("Re-scrape returned no editions.")
             except Exception as inner_exc:
                 logger.error(f"Re-scrape and re-extraction failed for edition {edition_id}: {inner_exc}", exc_info=True)
                 raise HTTPException(status_code=502, detail="Falha de conexão com a Imprensa Nacional. O link expirou e não foi possível obter um novo no momento.")
+
+        if not edition.full_text:
+            edition.full_text = pdf_text
+            session.flush()
 
         try:
             client = GeminiClient()

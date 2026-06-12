@@ -76,6 +76,11 @@ def summarize_edition(self, edition_id: int):
                 return {"cached": True}
 
             pdf_text, pages_read = extract_pdf_text(edition.pdf_url)
+
+            if not edition.full_text:
+                edition.full_text = pdf_text
+                session.flush()
+
             client = GeminiClient()
             section = _detect_section(edition.title)
             summary_text = client.summarize(pdf_text, section)

@@ -1,5 +1,5 @@
 from datetime import date, datetime
-from pydantic import BaseModel
+from pydantic import BaseModel, computed_field
 
 
 class EditionOut(BaseModel):
@@ -26,3 +26,13 @@ class SummaryOut(BaseModel):
     created_at: datetime
 
     model_config = {"from_attributes": True}
+
+
+class EditionSearchResult(BaseModel):
+    edition_id: int
+    title: str
+    edition_number: str
+    pub_date: date
+    excerpt: str
+
+    model_config = {"from_attributes": False}

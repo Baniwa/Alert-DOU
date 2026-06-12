@@ -1,76 +1,26 @@
-import { format } from 'date-fns'
+import { format, parseISO } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
-import { Bell, Plus, X, Users, ArrowRight, AlertCircle } from 'lucide-react'
-import { useMemo, useState } from 'react'
+import { Bell, Plus, X, ArrowRight, AlertCircle, FileText, CheckCircle, Loader2, RefreshCw } from 'lucide-react'
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { useQuery } from '@tanstack/react-query'
-import { apiClient, ApiError } from '../../../infrastructure/api/client'
-import { toAISummary } from '../../../infrastructure/mappers/summary.mapper'
-import type { AISummary } from '../../../domain/entities/AISummary'
-import type { AISummaryDTO } from '../../../infrastructure/api/dto/AISummaryDTO'
+import { useQueryClient } from '@tanstack/react-query'
+import { useNameAlerts } from '../../../application/hooks/useNameAlerts'
+import { displayName, loadNames, saveNames, validateInput } from './alerts.helpers'
 
-const STORAGE_KEY = 'alert-dou:tracked-names'
-const MAX_NAME_LENGTH = 100
 const MAX_TRACKED = 20
-
-function normaliseCPF(value: string): string {
-  return value.replace(/\D/g, '')
-}
-
-function isCPF(value: string): boolean {
-  return /^\d{3}[\.\s]?\d{3}[\.\s]?\d{3}[\-\s]?\d{2}$/.test(value.trim())
-}
-
-function sanitise(value: string): string {
-  return value.replace(/[<>"'`]/g, '').trim()
-}
-
-function validateInput(raw: string): { ok: true; value: string } | { ok: false; error: string } {
-  const trimmed = raw.trim()
-  if (!trimmed) return { ok: false, error: 'Digite um nome ou CPF.' }
-  if (trimmed.length < 2) return { ok: false, error: 'Mínimo de 2 caracteres.' }
-  if (trimmed.length > MAX_NAME_LENGTH) return { ok: false, error: `Máximo de ${MAX_NAME_LENGTH} caracteres.` }
-
-  if (isCPF(trimmed)) {
-    const digits = normaliseCPF(trimmed)
-    if (/^(\d)\1{10}$/.test(digits)) return { ok: false, error: 'CPF inválido.' }
-    return { ok: true, value: digits } // store normalised
-  }
-
-  return { ok: true, value: sanitise(trimmed) }
-}
-
-function loadNames(): string[] {
-  try {
-    const raw = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '[]')
-    return Array.isArray(raw) ? raw.slice(0, MAX_TRACKED) : []
-  } catch {
-    return []
-  }
-}
-
-function saveNames(list: string[]) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(list.slice(0, MAX_TRACKED)))
-}
-
-async function searchSummaries(q: string): Promise<AISummary[]> {
-  const { data } = await apiClient.get<AISummaryDTO[]>('/summaries/search', { params: { q, limit: 20 } })
-  return data.map(toAISummary)
-}
-
-function displayName(value: string): string {
-  // If it looks like a raw CPF (11 digits), format for display
-  if (/^\d{11}$/.test(value)) {
-    return `${value.slice(0, 3)}.${value.slice(3, 6)}.${value.slice(6, 9)}-${value.slice(9)}`
-  }
-  return value
-}
 
 export function AlertsPage() {
   const [tracked, setTracked] = useState<string[]>(loadNames)
   const [input, setInput] = useState('')
   const [inputError, setInputError] = useState('')
-  const [activeSearch, setActiveSearch] = useState<string | null>(null)
+  const queryClient = useQueryClient()
+
+  const { alerts: rawAlerts, isLoading, namesWithAlerts } = useNameAlerts(tracked)
+
+  const alerts = [...rawAlerts].sort((a, b) => {
+    if (a.isLoading || b.isLoading) return 0
+    return b.results.length - a.results.length
+  })
 
   function add() {
     const result = validateInput(input)
@@ -88,43 +38,55 @@ export function AlertsPage() {
     const updated = tracked.filter((t) => t !== value)
     setTracked(updated)
     saveNames(updated)
-    if (activeSearch === value) setActiveSearch(null)
   }
 
-  const { data: results, isLoading, isError, error } = useQuery({
-    queryKey: ['name-search', activeSearch],
-    queryFn: () => searchSummaries(activeSearch!),
-    enabled: !!activeSearch,
-    retry: false,
-    staleTime: 2 * 60 * 1000,
-  })
-
-  const apiError = error instanceof ApiError ? error : null
-  const isRateLimited = apiError?.status === 429
+  function refresh() {
+    tracked.forEach((name) => {
+      queryClient.invalidateQueries({ queryKey: ['name-alert', name] })
+    })
+  }
 
   return (
     <div className="max-w-3xl w-full mx-auto">
 
+      {/* Header */}
       <div className="mb-8 border-b border-gray-200 pb-6">
         <p className="text-[11px] font-bold text-[#1351B4] uppercase tracking-[0.15em] mb-2 flex items-center gap-2">
           <Bell size={12} />
           Monitoramento Pessoal
         </p>
-        <h1 className="text-2xl font-extrabold text-gray-900 leading-tight">Name Tracker</h1>
-        <p className="text-sm text-gray-600 mt-2 max-w-2xl leading-relaxed">
-          Cadastre seu nome ou CPF para verificar menções nos resumos do DOU. Ideal para acompanhar nomeações e exonerações publicadas na Seção 2.
-        </p>
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-extrabold text-gray-900 leading-tight">Name Tracker</h1>
+            <p className="text-sm text-gray-600 mt-2 max-w-2xl leading-relaxed">
+              Cadastre nomes ou CPFs para monitorar automaticamente menções no texto integral do DOU.
+              Os alertas são verificados ao abrir esta página.
+            </p>
+          </div>
+          {tracked.length > 0 && (
+            <button
+              onClick={refresh}
+              title="Verificar novamente"
+              className="flex-shrink-0 flex items-center gap-1.5 text-[11px] font-bold text-gray-400 hover:text-[#1351B4] transition-colors mt-1"
+            >
+              <RefreshCw size={13} className={isLoading ? 'animate-spin' : ''} />
+              Atualizar
+            </button>
+          )}
+        </div>
       </div>
 
+      {/* Privacy notice */}
       <div className="flex items-start gap-3 p-4 mb-6 bg-amber-50 border border-amber-200 rounded-xl text-[12px] text-amber-800">
         <AlertCircle size={14} className="mt-0.5 flex-shrink-0 text-amber-500" />
         <p>
-          Os dados são armazenados <strong>apenas no seu navegador</strong> (localStorage) e nunca enviados para servidores externos.
-          A busca consulta somente resumos já gerados pela IA — não o texto integral do DOU.
+          Os dados são armazenados <strong>apenas no seu navegador</strong> (localStorage).
+          A busca percorre o <strong>texto integral dos PDFs</strong> indexados — muito mais precisa que buscar só nos resumos IA.
         </p>
       </div>
 
-      <div className="mb-6">
+      {/* Add input */}
+      <div className="mb-8">
         <label className="block text-[11px] font-bold text-gray-600 uppercase tracking-wider mb-2">
           Adicionar nome ou CPF
         </label>
@@ -136,7 +98,7 @@ export function AlertsPage() {
               onChange={(e) => { setInput(e.target.value); setInputError('') }}
               onKeyDown={(e) => e.key === 'Enter' && add()}
               placeholder='Ex: "João da Silva" ou "123.456.789-09"'
-              maxLength={MAX_NAME_LENGTH + 10}
+              maxLength={110}
               className={`w-full h-10 px-4 text-[13px] bg-white border rounded-lg focus:outline-none focus:ring-1 transition-colors ${
                 inputError
                   ? 'border-red-400 focus:border-red-400 focus:ring-red-400'
@@ -154,135 +116,126 @@ export function AlertsPage() {
             Monitorar
           </button>
         </div>
-        <p className="text-[10px] text-gray-400 mt-1.5">
-          CPFs são normalizados e armazenados apenas como dígitos (sem pontuação).
-        </p>
       </div>
 
-      {tracked.length > 0 && (
-        <div className="mb-8">
-          <p className="text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-3">
-            Monitorando ({tracked.length}/{MAX_TRACKED})
-          </p>
-          <div className="flex flex-wrap gap-2">
-            {tracked.map((value) => (
-              <button
-                key={value}
-                onClick={() => setActiveSearch(activeSearch === value ? null : value)}
-                className={`inline-flex items-center gap-2 px-3 py-1.5 text-[12px] font-bold rounded-lg border transition-all ${
-                  activeSearch === value
-                    ? 'bg-[#1351B4] text-white border-[#1351B4] shadow-sm'
-                    : 'bg-[#1351B4]/10 text-[#1351B4] border-[#1351B4]/20 hover:bg-[#1351B4]/20'
-                }`}
-              >
-                <Users size={11} />
-                {displayName(value)}
-                <span
-                  role="button"
-                  onClick={(e) => { e.stopPropagation(); remove(value) }}
-                  className="ml-0.5 hover:text-red-400 transition-colors"
-                  title={`Remover ${displayName(value)}`}
-                >
-                  <X size={11} />
-                </span>
-              </button>
-            ))}
-          </div>
-          {!activeSearch && (
-            <p className="text-[11px] text-gray-400 mt-2">Clique em um nome para buscar menções nos resumos.</p>
-          )}
-        </div>
-      )}
-
+      {/* Empty state */}
       {tracked.length === 0 && (
         <div className="rounded-xl border border-dashed border-gray-300 bg-gray-50 p-16 text-center">
           <div className="text-4xl mb-4">👤</div>
           <p className="text-[15px] font-bold text-gray-700 mb-2">Nenhum nome monitorado</p>
           <p className="text-sm text-gray-500 max-w-sm mx-auto">
-            Adicione seu nome ou CPF acima para verificar menções nos resumos do DOU.
+            Adicione seu nome ou CPF acima para monitorar menções no DOU.
           </p>
         </div>
       )}
 
-      {activeSearch && (
-        <div>
-          <div className="flex items-center gap-3 mb-5">
-            <h2 className="text-sm font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap">
+      {/* Alert results — one section per tracked name */}
+      {tracked.length > 0 && (
+        <div className="space-y-6">
+
+          {/* Summary bar */}
+          <div className="flex items-center gap-3 text-[11px]">
+            <span className="font-bold text-gray-500 uppercase tracking-wider">
               {isLoading
-                ? `Buscando "${displayName(activeSearch)}"...`
-                : isError
-                ? 'Erro na busca'
-                : results?.length
-                ? `${results.length} resultado${results.length > 1 ? 's' : ''} para "${displayName(activeSearch)}"`
-                : `Nenhum resultado para "${displayName(activeSearch)}"`}
-            </h2>
+                ? 'Verificando...'
+                : namesWithAlerts > 0
+                ? `${namesWithAlerts} nome${namesWithAlerts > 1 ? 's' : ''} com menções encontradas`
+                : 'Nenhuma menção encontrada nas edições indexadas'}
+            </span>
             <div className="h-px bg-gray-200 flex-1" />
+            <span className="text-gray-400">{tracked.length}/{MAX_TRACKED} monitorados</span>
           </div>
 
-          {isLoading && (
-            <div className="space-y-3">
-              {[1, 2].map((i) => <div key={i} className="h-24 bg-white rounded-xl border border-gray-200 animate-pulse" />)}
-            </div>
-          )}
+          {/* One card per name */}
+          {alerts.map(({ name, results, isLoading: nameLoading, isError }) => (
+            <div key={name} className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm">
 
-          {isRateLimited && (
-            <div className="rounded-xl border border-amber-200 bg-amber-50 p-6 text-center">
-              <p className="text-sm font-bold text-amber-800">Muitas buscas em pouco tempo.</p>
-              <p className="text-xs text-amber-600 mt-1">Aguarde alguns segundos e tente novamente.</p>
-            </div>
-          )}
-
-          {isError && !isRateLimited && (
-            <div className="rounded-xl border border-red-200 bg-red-50 p-6 text-center">
-              <p className="text-sm font-bold text-red-700">Não foi possível realizar a busca.</p>
-            </div>
-          )}
-
-          {!isLoading && !isError && results?.length === 0 && (
-            <div className="rounded-xl border border-dashed border-gray-300 bg-gray-50 p-10 text-center">
-              <p className="text-sm text-gray-500 mb-1">
-                Nenhum resumo disponível menciona <strong>{displayName(activeSearch)}</strong>.
-              </p>
-              <p className="text-xs text-gray-400 mt-2">
-                A busca considera apenas edições com resumo IA gerado.
-                Gere resumos nas <Link to="/" className="text-[#1351B4] font-bold hover:underline">edições do dia</Link> para ampliar a cobertura.
-              </p>
-            </div>
-          )}
-
-          {!isLoading && !isError && results && results.length > 0 && (
-            <div className="space-y-4">
-              {results.map((summary) => (
-                <div key={summary.id} className="bg-white border border-gray-200 rounded-xl p-5 shadow-sm hover:shadow-md transition-all hover:-translate-y-0.5">
-                  <div className="flex items-start justify-between gap-4 mb-3">
-                    <div className="flex items-center gap-2.5">
-                      <div className="w-8 h-8 rounded-lg bg-[#C9A84C]/15 flex items-center justify-center flex-shrink-0">
-                        <Users size={14} className="text-[#C9A84C]" />
-                      </div>
-                      <div>
-                        <p className="text-[12px] font-bold text-gray-800 uppercase tracking-wider leading-none">{summary.editionTitle ?? 'DOU'}</p>
-                        <p className="text-[11px] text-gray-500 mt-0.5">{format(summary.createdAt, "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}</p>
-                      </div>
-                    </div>
-                    <span className="text-[10px] font-bold px-2 py-0.5 bg-[#C9A84C]/10 text-[#C9A84C] rounded-full border border-[#C9A84C]/20 flex-shrink-0">
-                      Edição {summary.editionNumber}
+              {/* Name header */}
+              <div className={`flex items-center justify-between px-5 py-3 border-b ${
+                results.length > 0 ? 'bg-green-50 border-green-100' : 'bg-gray-50 border-gray-100'
+              }`}>
+                <div className="flex items-center gap-2.5">
+                  {nameLoading ? (
+                    <Loader2 size={14} className="text-gray-400 animate-spin flex-shrink-0" />
+                  ) : results.length > 0 ? (
+                    <CheckCircle size={14} className="text-green-500 flex-shrink-0" />
+                  ) : (
+                    <div className="w-3.5 h-3.5 rounded-full border-2 border-gray-300 flex-shrink-0" />
+                  )}
+                  <span className="text-[13px] font-bold text-gray-800">{displayName(name)}</span>
+                  {results.length > 0 && (
+                    <span className="text-[10px] font-bold px-2 py-0.5 bg-green-100 text-green-700 rounded-full border border-green-200">
+                      {results.length} menção{results.length > 1 ? 'ões' : ''}
                     </span>
-                  </div>
-
-                  <p className="text-[13px] text-gray-600 leading-relaxed line-clamp-4 mb-4">
-                    {summary.summary.replace(/[*#]/g, '')}
-                  </p>
-
-                  <Link
-                    to={`/editions/${summary.editionId}`}
-                    className="inline-flex items-center gap-1.5 text-[12px] font-bold text-[#1351B4] hover:text-[#168821] transition-colors"
-                  >
-                    Ver resumo completo <ArrowRight size={13} />
-                  </Link>
+                  )}
                 </div>
-              ))}
+                <button
+                  onClick={() => remove(name)}
+                  className="text-gray-300 hover:text-red-400 transition-colors"
+                  title={`Remover ${displayName(name)}`}
+                >
+                  <X size={14} />
+                </button>
+              </div>
+
+              {/* Results or states */}
+              {nameLoading && (
+                <div className="px-5 py-4 space-y-2">
+                  {[1, 2].map((i) => <div key={i} className="h-3 bg-gray-100 rounded animate-pulse" />)}
+                </div>
+              )}
+
+              {isError && !nameLoading && (
+                <div className="px-5 py-4 text-[12px] text-red-500 font-medium">
+                  Falha ao verificar — tente atualizar.
+                </div>
+              )}
+
+              {!nameLoading && !isError && results.length === 0 && (
+                <div className="px-5 py-4 text-[12px] text-gray-400">
+                  Nenhuma menção encontrada nas edições com texto indexado.{' '}
+                  <Link to="/" className="text-[#1351B4] font-bold hover:underline">
+                    Gere resumos de mais edições
+                  </Link>{' '}
+                  para ampliar a cobertura.
+                </div>
+              )}
+
+              {!nameLoading && !isError && results.length > 0 && (
+                <div className="divide-y divide-gray-100">
+                  {results.map((result) => (
+                    <div key={result.edition_id} className="px-5 py-4">
+                      <div className="flex items-center justify-between gap-4 mb-2">
+                        <div className="flex items-center gap-2">
+                          <FileText size={12} className="text-gray-400 flex-shrink-0" />
+                          <span className="text-[11px] font-bold text-gray-600 uppercase tracking-wide">
+                            {result.title}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2 flex-shrink-0">
+                          <span className="text-[10px] text-gray-400">
+                            {format(parseISO(result.pub_date), "dd/MM/yyyy", { locale: ptBR })}
+                          </span>
+                          <span className="text-[10px] font-bold px-1.5 py-0.5 bg-gray-100 text-gray-500 rounded">
+                            Nº {result.edition_number}
+                          </span>
+                        </div>
+                      </div>
+                      <p className="text-[11px] text-gray-500 font-mono bg-gray-50 rounded px-3 py-2 leading-relaxed mb-3 line-clamp-2">
+                        {result.excerpt}
+                      </p>
+                      <Link
+                        to={`/editions/${result.edition_id}`}
+                        className="inline-flex items-center gap-1 text-[11px] font-bold text-[#1351B4] hover:text-[#168821] transition-colors"
+                      >
+                        Ver edição completa <ArrowRight size={11} />
+                      </Link>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
-          )}
+          ))}
         </div>
       )}
     </div>

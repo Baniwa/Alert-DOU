@@ -1,5 +1,7 @@
 import { BookOpen, Bell, LayoutDashboard, Sparkles, ExternalLink, Landmark, Radar, Newspaper } from 'lucide-react'
 import { NavLink, Outlet } from 'react-router-dom'
+import { useNameAlerts } from '../../application/hooks/useNameAlerts'
+import { loadNames } from '../pages/Alerts/alerts.helpers'
 
 const API_BASE = import.meta.env.VITE_API_URL ?? 'http://localhost:8000'
 
@@ -12,7 +14,15 @@ const NAV = [
   { to: `${API_BASE}/docs`, icon: BookOpen, label: 'Documentação', external: true },
 ]
 
+function useAlertBadge() {
+  const names = loadNames()
+  const { namesWithAlerts, isLoading } = useNameAlerts(names)
+  return { count: namesWithAlerts, isLoading }
+}
+
 export function AppLayout() {
+  const alertBadge = useAlertBadge()
+
   return (
     <div className="flex h-screen bg-[#F8F9FA] overflow-hidden text-gray-900 font-sans">
 
@@ -68,7 +78,12 @@ export function AppLayout() {
                 }
               >
                 <Icon size={16} />
-                <span className="text-[13px]">{label}</span>
+                <span className="text-[13px] flex-1">{label}</span>
+                {to === '/alerts' && alertBadge.count > 0 && (
+                  <span className="text-[10px] font-extrabold bg-red-500 text-white rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1 leading-none">
+                    {alertBadge.count}
+                  </span>
+                )}
               </NavLink>
             )
           )}
