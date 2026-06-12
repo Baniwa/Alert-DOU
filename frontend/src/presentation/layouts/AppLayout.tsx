@@ -137,7 +137,7 @@ export function AppLayout() {
               className="opacity-40 hover:opacity-80 transition-opacity"
               title="by Baniwa"
             >
-              <img src="/baniwa-logo.png" alt="Baniwa" className="h-5 w-5 object-contain grayscale" />
+              <img src="/baniwa-logo.png" alt="Baniwa" className="h-5 w-5 object-contain" />
             </a>
           </div>
         </footer>
