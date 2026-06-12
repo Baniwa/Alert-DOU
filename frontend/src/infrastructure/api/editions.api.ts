@@ -39,7 +39,20 @@ export async function fetchEditionsForDate(pubDate: Date): Promise<{ editions_fo
   const { data } = await apiClient.post<{ editions_found: number }>(
     `/editions/fetch-date?date=${format(pubDate, 'yyyy-MM-dd')}`,
     null,
-    { timeout: 90_000 },  // Playwright can take up to 30 s
+    { timeout: 90_000 },
   )
+  return data
+}
+
+export interface EditionSearchResult {
+  edition_id: number
+  title: string
+  edition_number: string
+  pub_date: string
+  excerpt: string
+}
+
+export async function searchEditionsByName(q: string, limit = 20): Promise<EditionSearchResult[]> {
+  const { data } = await apiClient.get<EditionSearchResult[]>('/editions/search', { params: { q, limit } })
   return data
 }

@@ -1,13 +1,12 @@
-import { format } from 'date-fns'
+import { format, parseISO } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
-import { Bell, Plus, X, Users, ArrowRight, AlertCircle } from 'lucide-react'
-import { useMemo, useState } from 'react'
+import { Bell, Plus, X, Users, ArrowRight, AlertCircle, FileText } from 'lucide-react'
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
-import { apiClient, ApiError } from '../../../infrastructure/api/client'
-import { toAISummary } from '../../../infrastructure/mappers/summary.mapper'
-import type { AISummary } from '../../../domain/entities/AISummary'
-import type { AISummaryDTO } from '../../../infrastructure/api/dto/AISummaryDTO'
+import { ApiError } from '../../../infrastructure/api/client'
+import { searchEditionsByName } from '../../../infrastructure/api/editions.api'
+import type { EditionSearchResult } from '../../../infrastructure/api/editions.api'
 
 const STORAGE_KEY = 'alert-dou:tracked-names'
 const MAX_NAME_LENGTH = 100
@@ -53,10 +52,6 @@ function saveNames(list: string[]) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(list.slice(0, MAX_TRACKED)))
 }
 
-async function searchSummaries(q: string): Promise<AISummary[]> {
-  const { data } = await apiClient.get<AISummaryDTO[]>('/summaries/search', { params: { q, limit: 20 } })
-  return data.map(toAISummary)
-}
 
 function displayName(value: string): string {
   // If it looks like a raw CPF (11 digits), format for display
@@ -93,7 +88,7 @@ export function AlertsPage() {
 
   const { data: results, isLoading, isError, error } = useQuery({
     queryKey: ['name-search', activeSearch],
-    queryFn: () => searchSummaries(activeSearch!),
+    queryFn: () => searchEditionsByName(activeSearch!),
     enabled: !!activeSearch,
     retry: false,
     staleTime: 2 * 60 * 1000,
@@ -241,43 +236,45 @@ export function AlertsPage() {
           {!isLoading && !isError && results?.length === 0 && (
             <div className="rounded-xl border border-dashed border-gray-300 bg-gray-50 p-10 text-center">
               <p className="text-sm text-gray-500 mb-1">
-                Nenhum resumo disponível menciona <strong>{displayName(activeSearch)}</strong>.
+                Nenhuma edição com o texto integral indexado menciona <strong>{displayName(activeSearch)}</strong>.
               </p>
               <p className="text-xs text-gray-400 mt-2">
-                A busca considera apenas edições com resumo IA gerado.
-                Gere resumos nas <Link to="/" className="text-[#1351B4] font-bold hover:underline">edições do dia</Link> para ampliar a cobertura.
+                O texto é indexado quando um resumo IA é gerado. Gere resumos nas{' '}
+                <Link to="/" className="text-[#1351B4] font-bold hover:underline">edições do dia</Link> para ampliar a cobertura.
               </p>
             </div>
           )}
 
           {!isLoading && !isError && results && results.length > 0 && (
             <div className="space-y-4">
-              {results.map((summary) => (
-                <div key={summary.id} className="bg-white border border-gray-200 rounded-xl p-5 shadow-sm hover:shadow-md transition-all hover:-translate-y-0.5">
+              {results.map((result) => (
+                <div key={result.edition_id} className="bg-white border border-gray-200 rounded-xl p-5 shadow-sm hover:shadow-md transition-all hover:-translate-y-0.5">
                   <div className="flex items-start justify-between gap-4 mb-3">
                     <div className="flex items-center gap-2.5">
-                      <div className="w-8 h-8 rounded-lg bg-[#C9A84C]/15 flex items-center justify-center flex-shrink-0">
-                        <Users size={14} className="text-[#C9A84C]" />
+                      <div className="w-8 h-8 rounded-lg bg-[#1351B4]/10 flex items-center justify-center flex-shrink-0">
+                        <FileText size={14} className="text-[#1351B4]" />
                       </div>
                       <div>
-                        <p className="text-[12px] font-bold text-gray-800 uppercase tracking-wider leading-none">{summary.editionTitle ?? 'DOU'}</p>
-                        <p className="text-[11px] text-gray-500 mt-0.5">{format(summary.createdAt, "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}</p>
+                        <p className="text-[12px] font-bold text-gray-800 uppercase tracking-wider leading-none">{result.title}</p>
+                        <p className="text-[11px] text-gray-500 mt-0.5">
+                          {format(parseISO(result.pub_date), "dd/MM/yyyy", { locale: ptBR })}
+                        </p>
                       </div>
                     </div>
-                    <span className="text-[10px] font-bold px-2 py-0.5 bg-[#C9A84C]/10 text-[#C9A84C] rounded-full border border-[#C9A84C]/20 flex-shrink-0">
-                      Edição {summary.editionNumber}
+                    <span className="text-[10px] font-bold px-2 py-0.5 bg-[#1351B4]/10 text-[#1351B4] rounded-full border border-[#1351B4]/20 flex-shrink-0">
+                      Edição {result.edition_number}
                     </span>
                   </div>
 
-                  <p className="text-[13px] text-gray-600 leading-relaxed line-clamp-4 mb-4">
-                    {summary.summary.replace(/[*#]/g, '')}
+                  <p className="text-[12px] text-gray-500 leading-relaxed font-mono bg-gray-50 rounded-lg px-3 py-2 mb-4 line-clamp-3">
+                    {result.excerpt}
                   </p>
 
                   <Link
-                    to={`/editions/${summary.editionId}`}
+                    to={`/editions/${result.edition_id}`}
                     className="inline-flex items-center gap-1.5 text-[12px] font-bold text-[#1351B4] hover:text-[#168821] transition-colors"
                   >
-                    Ver resumo completo <ArrowRight size={13} />
+                    Ver edição completa <ArrowRight size={13} />
                   </Link>
                 </div>
               ))}

@@ -17,6 +17,7 @@ class Edition(Base):
     pub_date: Mapped[date] = mapped_column(Date, index=True)
     page_count: Mapped[int] = mapped_column(Integer)
     pdf_url: Mapped[str] = mapped_column(String(500), default="")
+    full_text: Mapped[str | None] = mapped_column(Text, nullable=True, default=None)
     scraped_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
     __table_args__ = (
