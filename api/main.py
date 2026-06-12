@@ -31,8 +31,21 @@ _CORS_ORIGINS = [
     if o.strip()
 ]
 
+_BANNER = r"""
+  ██████╗  █████╗ ███╗   ██╗██╗██╗    ██╗ █████╗
+  ██╔══██╗██╔══██╗████╗  ██║██║██║    ██║██╔══██╗
+  ██████╔╝███████║██╔██╗ ██║██║██║ █╗ ██║███████║
+  ██╔══██╗██╔══██║██║╚██╗██║██║██║███╗██║██╔══██║
+  ██████╔╝██║  ██║██║ ╚████║██║╚███╔███╔╝██║  ██║
+  ╚═════╝ ╚═╝  ╚═╝╚═╝  ╚═══╝╚═╝ ╚══╝╚══╝╚═╝  ╚═╝
+
+  Alert DOU  ·  v0.1.0  ·  Monitoramento do DOU com IA
+"""
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    print(_BANNER)
     logger.info("startup", extra={"environment": _ENV, "cors_origins": _CORS_ORIGINS})
     yield
     logger.info("shutdown")

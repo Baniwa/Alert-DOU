@@ -1,19 +1,24 @@
 import { format, isWeekend, subDays, subMonths } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
-import { Calendar, ChevronLeft, ChevronRight, FileText, Layers, Scale, Users, Sparkles, ArrowRight } from 'lucide-react'
+import { Calendar, ChevronLeft, ChevronRight, FileText, Layers, Scale, Users, Sparkles, ArrowRight, RefreshCw } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useSearchParams, Link } from 'react-router-dom'
 import { useEditions } from '../../../application/hooks/useEditions'
+import { editionKeys } from '../../../application/query-keys/editions.keys'
 import { Section } from '../../../domain/value-objects/Section'
 import type { Edition } from '../../../domain/entities/Edition'
 import type { AISummary } from '../../../domain/entities/AISummary'
-import { fetchEditionSummary, fetchAvailableDates } from '../../../infrastructure/api/editions.api'
+import { fetchEditionSummary, fetchAvailableDates, fetchEditionsForDate } from '../../../infrastructure/api/editions.api'
 import { apiClient } from '../../../infrastructure/api/client'
 import { toAISummary } from '../../../infrastructure/mappers/summary.mapper'
 import type { AISummaryDTO } from '../../../infrastructure/api/dto/AISummaryDTO'
 import { ApiError } from '../../../infrastructure/api/client'
 import { CalendarPicker } from '../../components/ui/CalendarPicker'
+
+// ── constants ───────────────────────────────────────────────────────────────
+
+const MIN_CALENDAR_DATE = new Date('2026-01-01T00:00:00')
 
 // ── helpers ─────────────────────────────────────────────────────────────────
 
@@ -205,6 +210,9 @@ function SectionColumn({ section, edition, existingSummary }: SectionColumnProps
 export function HomePage() {
   const [searchParams, setSearchParams] = useSearchParams()
   const [showCalendar, setShowCalendar] = useState(false)
+  const [isFetchingDate, setIsFetchingDate] = useState(false)
+  const [fetchDateError, setFetchDateError] = useState<string | null>(null)
+  const queryClient = useQueryClient()
 
   const date = (() => {
     const p = searchParams.get('date')
@@ -214,7 +222,7 @@ export function HomePage() {
 
   const today = lastWorkday()
   const isToday = format(date, 'yyyy-MM-dd') === format(today, 'yyyy-MM-dd')
-  // Limit home navigation to the last 30 days — older dates are accessible via /editions
+  // Arrows are limited to the last 30 days; the calendar widget goes back to 2026-01-01
   const minDate = subMonths(today, 1)
 
   const { data: editions, isLoading, isError } = useEditions(date)
@@ -247,6 +255,25 @@ export function HomePage() {
     if (!allSummaries) return {} as Record<number, AISummary>
     return Object.fromEntries(allSummaries.map((s) => [s.editionId, s])) as Record<number, AISummary>
   }, [allSummaries])
+
+  async function handleFetchDate() {
+    setIsFetchingDate(true)
+    setFetchDateError(null)
+    try {
+      const result = await fetchEditionsForDate(date)
+      await queryClient.invalidateQueries({ queryKey: editionKeys.byDate(date) })
+      await queryClient.invalidateQueries({ queryKey: ['edition-dates'] })
+      if (result.editions_found === 0) {
+        setFetchDateError('Nenhuma edição encontrada para esta data — pode ser feriado ou falha no DOU.')
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err)
+      console.error('[handleFetchDate]', msg)
+      setFetchDateError(`Erro: ${msg}`)
+    } finally {
+      setIsFetchingDate(false)
+    }
+  }
 
   const mainSections = [Section.SECTION_1, Section.SECTION_2, Section.SECTION_3]
   const sectionEditions = mainSections.map((s) => editions?.find((e) => e.section === s))
@@ -302,6 +329,7 @@ export function HomePage() {
                   selectedDate={date}
                   availableDates={availableDates ?? []}
                   latestDate={today}
+                  minCalendarDate={MIN_CALENDAR_DATE}
                   onSelect={setDate}
                   onClose={() => setShowCalendar(false)}
                 />
@@ -339,9 +367,36 @@ export function HomePage() {
       {/* ── No editions for this date ── */}
       {!isLoading && !isError && editions?.length === 0 && (
         <div className="rounded-xl border border-dashed border-gray-300 bg-gray-50 p-16 text-center">
-          <p className="text-3xl mb-4">📭</p>
-          <p className="text-sm font-bold text-gray-700 mb-1">Nenhuma publicação nesta data</p>
-          <p className="text-xs text-gray-500">Finais de semana e feriados não possuem edição do DOU.</p>
+          {isWeekend(date) ? (
+            <>
+              <p className="text-3xl mb-4">📭</p>
+              <p className="text-sm font-bold text-gray-700 mb-1">Nenhuma publicação nesta data</p>
+              <p className="text-xs text-gray-500">Finais de semana e feriados não possuem edição do DOU.</p>
+            </>
+          ) : (
+            <>
+              <p className="text-3xl mb-4">🔍</p>
+              <p className="text-sm font-bold text-gray-700 mb-2">Esta data ainda não foi indexada</p>
+              <p className="text-xs text-gray-500 mb-6 max-w-xs mx-auto leading-relaxed">
+                Os dados do DOU para {format(date, "dd/MM/yyyy")} ainda não foram carregados.
+                Clique para buscar agora — leva cerca de 20 segundos.
+              </p>
+              {fetchDateError && (
+                <p className="text-xs text-red-500 mb-4 max-w-xs mx-auto">{fetchDateError}</p>
+              )}
+              <button
+                onClick={handleFetchDate}
+                disabled={isFetchingDate}
+                className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#1351B4] hover:bg-[#0c326f] disabled:opacity-60 text-white text-sm font-bold rounded-lg transition-all shadow-sm"
+              >
+                <RefreshCw size={14} className={isFetchingDate ? 'animate-spin' : ''} />
+                {isFetchingDate ? 'Buscando no DOU...' : 'Buscar no DOU'}
+              </button>
+              {isFetchingDate && (
+                <p className="text-xs text-gray-400 mt-3">Iniciando browser, aguarde...</p>
+              )}
+            </>
+          )}
         </div>
       )}
 

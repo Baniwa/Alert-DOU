@@ -19,13 +19,14 @@ interface Props {
   selectedDate: Date
   availableDates: Date[]
   latestDate: Date
+  minCalendarDate: Date
   onSelect: (d: Date) => void
   onClose: () => void
 }
 
 const WEEKDAYS = ['D', 'S', 'T', 'Q', 'Q', 'S', 'S']
 
-export function CalendarPicker({ selectedDate, availableDates, latestDate, onSelect, onClose }: Props) {
+export function CalendarPicker({ selectedDate, availableDates, latestDate, minCalendarDate, onSelect, onClose }: Props) {
   const [viewMonth, setViewMonth] = useState(() => startOfMonth(selectedDate))
   const [isVisible, setIsVisible] = useState(false)
   const [monthKey, setMonthKey] = useState(0)
@@ -68,11 +69,9 @@ export function CalendarPicker({ selectedDate, availableDates, latestDate, onSel
     return eachDayOfInterval({ start, end })
   }, [viewMonth])
 
-  const earliestMonth = useMemo(() => {
-    if (!availableDates.length) return subMonths(startOfMonth(now), 12)
-    // availableDates is sorted descending (newest first)
-    return startOfMonth(availableDates[availableDates.length - 1])
-  }, [availableDates, now])
+  // Hard floor is minCalendarDate (Jan 1, 2026 by design); ignore availableDates floor
+  // so the user can navigate to months before any data is in the DB.
+  const earliestMonth = useMemo(() => startOfMonth(minCalendarDate), [minCalendarDate])
 
   const canGoBack = viewMonth > earliestMonth
   const canGoForward = !isSameMonth(viewMonth, startOfMonth(now))
@@ -82,9 +81,17 @@ export function CalendarPicker({ selectedDate, availableDates, latestDate, onSel
     setMonthKey((k) => k + 1)
   }
 
+  // A day is navigable if it's a weekday within [minCalendarDate, today].
+  // We don't block unknown past weekdays — the user may navigate there even
+  // before the backfill has populated the DB for that date.
+  function isNavigable(day: Date): boolean {
+    const dow = getDay(day)
+    const isWeekend = dow === 0 || dow === 6
+    return !isWeekend && day >= minCalendarDate && day <= now
+  }
+
   function handleDayClick(day: Date) {
-    const key = format(day, 'yyyy-MM-dd')
-    if (!availableSet.has(key)) return
+    if (!isNavigable(day)) return
     onSelect(day)
     onClose()
   }
@@ -152,10 +159,23 @@ export function CalendarPicker({ selectedDate, availableDates, latestDate, onSel
         {gridDays.map((day) => {
           const key = format(day, 'yyyy-MM-dd')
           const inMonth = isSameMonth(day, viewMonth)
-          const isAvailable = availableSet.has(key)
+          const isAvailable = availableSet.has(key)   // confirmed: in DB with edition
           const isSelected = isSameDay(day, selectedDate)
           const isToday = isSameDay(day, now)
-          const isWeekendDay = getDay(day) === 0 || getDay(day) === 6
+          const canNav = isNavigable(day)              // weekday in [minDate, today]
+
+          // Visual state priorities:
+          // 1. selected      → blue filled circle
+          // 2. confirmed     → bold dark text + green dot + green hover
+          // 3. unknown past  → medium gray text + gray hover (navigable, no dot)
+          // 4. blocked       → very light gray, cursor-not-allowed (weekend / future)
+          const dayClass = isSelected
+            ? 'bg-[#1351B4] text-white font-bold shadow-md shadow-blue-200'
+            : isAvailable
+            ? `font-semibold hover:bg-green-50 hover:text-[#168821] cursor-pointer ${isToday ? 'ring-[1.5px] ring-[#168821]' : ''} text-gray-800`
+            : canNav
+            ? `text-gray-400 hover:bg-gray-100 cursor-pointer ${isToday ? 'ring-[1.5px] ring-gray-300' : ''}`
+            : 'text-gray-200 cursor-not-allowed'
 
           // Invisible placeholder for days outside current month
           if (!inMonth) return <div key={key} className="h-9" />
@@ -164,29 +184,20 @@ export function CalendarPicker({ selectedDate, availableDates, latestDate, onSel
             <div key={key} className="flex flex-col items-center gap-0.5 py-0.5">
               <button
                 onClick={() => handleDayClick(day)}
-                disabled={!isAvailable}
-                title={isAvailable ? format(day, "EEEE, dd 'de' MMMM", { locale: ptBR }) : undefined}
+                disabled={!canNav && !isSelected}
+                title={format(day, "EEEE, dd 'de' MMMM", { locale: ptBR })}
                 className={`
                   w-8 h-8 flex items-center justify-center rounded-full text-[13px] leading-none
                   transition-all duration-100 active:scale-90 select-none
-                  ${isSelected
-                    ? 'bg-[#1351B4] text-white font-bold shadow-md shadow-blue-200'
-                    : isToday && isAvailable
-                    ? 'ring-[1.5px] ring-[#1351B4] text-[#1351B4] font-bold hover:bg-blue-50'
-                    : isToday && !isAvailable
-                    ? 'ring-[1.5px] ring-gray-200 text-gray-300 cursor-not-allowed'
-                    : isAvailable
-                    ? `font-medium cursor-pointer hover:bg-blue-50 hover:text-[#1351B4] ${isWeekendDay ? 'text-gray-400' : 'text-gray-800'}`
-                    : 'text-gray-200 cursor-not-allowed'
-                  }
+                  ${dayClass}
                 `}
               >
                 {format(day, 'd')}
               </button>
 
-              {/* iOS-style event dot */}
+              {/* Dot: green = confirmed in DB, invisible spacer otherwise */}
               {isAvailable && !isSelected
-                ? <div className="w-1 h-1 rounded-full bg-[#1351B4] opacity-40" />
+                ? <div className="w-1 h-1 rounded-full bg-[#168821] opacity-70" />
                 : <div className="w-1 h-1" />
               }
             </div>

@@ -18,7 +18,20 @@ interface HighlightStore {
 
 function load(): HighlightStore {
   try {
-    return JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '{}')
+    const raw = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '{}')
+    const out: HighlightStore = {}
+    for (const [key, val] of Object.entries(raw)) {
+      if (Array.isArray(val)) {
+        const clean = (val as unknown[]).filter(
+          (h): h is Highlight =>
+            !!h &&
+            typeof (h as Highlight).phrase === 'string' &&
+            (h as Highlight).phrase.length > 0,
+        )
+        if (clean.length) out[Number(key)] = clean
+      }
+    }
+    return out
   } catch {
     return {}
   }
@@ -74,6 +87,7 @@ export function useHighlights(editionId: number) {
 }
 
 export function applyHighlightsToMarkdown(markdown: string, highlights: Highlight[]): string {
+  if (!markdown) return markdown ?? ''
   if (!highlights.length) return markdown
 
   // Split into HTML-tag tokens and text tokens so we never modify inside existing
@@ -81,6 +95,7 @@ export function applyHighlightsToMarkdown(markdown: string, highlights: Highligh
   const tokens = markdown.split(/(<[^>]+>)/)
 
   for (const { phrase, occurrenceIndex } of highlights) {
+    if (!phrase || typeof phrase !== 'string') continue
     const escaped = phrase
       .replace(/&/g, '&amp;')
       .replace(/</g, '&lt;')

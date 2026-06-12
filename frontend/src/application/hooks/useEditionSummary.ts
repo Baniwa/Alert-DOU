@@ -7,9 +7,8 @@ export function useEditionSummary(editionId: number, enabled = true) {
     queryKey: editionKeys.summary(editionId),
     queryFn: () => fetchEditionSummary(editionId),
     enabled,
-    staleTime: Infinity,   // Summaries are immutable once generated
+    staleTime: Infinity,  
     retry: (count, err: unknown) => {
-      // Don't retry on 503 (no API key) — user action required
       const status = (err as { status?: number })?.status
       return count < 2 && status !== 503
     },

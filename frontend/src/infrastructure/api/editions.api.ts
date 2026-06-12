@@ -34,3 +34,12 @@ export async function fetchAvailableDates(): Promise<Date[]> {
   const { data } = await apiClient.get<string[]>('/editions/dates')
   return data.map((d) => new Date(d + 'T00:00:00'))
 }
+
+export async function fetchEditionsForDate(pubDate: Date): Promise<{ editions_found: number }> {
+  const { data } = await apiClient.post<{ editions_found: number }>(
+    `/editions/fetch-date?date=${format(pubDate, 'yyyy-MM-dd')}`,
+    null,
+    { timeout: 90_000 },  // Playwright can take up to 30 s
+  )
+  return data
+}

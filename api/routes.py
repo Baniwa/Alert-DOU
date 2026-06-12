@@ -1,6 +1,6 @@
 import logging
 import re
-from datetime import date
+from datetime import date, timedelta
 from fastapi import APIRouter, HTTPException, Query, Request
 from sqlalchemy import select
 from api.schemas import EditionOut, SummaryOut
@@ -9,6 +9,9 @@ from database.models import AISummary
 from ai.client import GeminiClient, _detect_section
 from scraper.pdf_extractor import extract_pdf_text
 from api.limiter import limiter
+
+BACKFILL_MIN_DATE = date(2026, 1, 1)
+BACKFILL_MAX_DAYS = 365  # safety cap: never enqueue more than 1 year of tasks at once
 
 logger = logging.getLogger(__name__)
 
@@ -56,6 +59,102 @@ def list_summaries(request: Request, limit: int = Query(default=100, le=500), of
     with get_session() as session:
         stmt = select(AISummary).order_by(AISummary.created_at.desc()).limit(limit).offset(offset)
         return session.scalars(stmt).all()
+
+
+@router.post("/fetch-date", status_code=200)
+@limiter.limit("6/minute")
+def fetch_single_date(
+    request: Request,
+    pub_date: date = Query(..., alias="date", description="Date to scrape (YYYY-MM-DD)"),
+):
+    """Synchronously scrape DOU edition metadata for a single date.
+
+    Runs fetch_dou_today() in-process (Playwright headless, ~10–30 s).
+    Call this when a specific date has no Edition records yet.
+
+    Security:
+    - pub_date must be a weekday between 2026-01-01 and today
+    - Rate limited to 6 req/min to prevent parallel Playwright instances
+    - No PDF download, no AI — metadata only
+    """
+    from scraper.fetcher import fetch_dou_today, save_editions
+
+    today = date.today()
+    if pub_date < BACKFILL_MIN_DATE:
+        raise HTTPException(status_code=422, detail=f"date cannot be before {BACKFILL_MIN_DATE}")
+    if pub_date > today:
+        raise HTTPException(status_code=422, detail="date cannot be in the future")
+    if pub_date.weekday() >= 5:
+        raise HTTPException(status_code=422, detail="date is a weekend — DOU is not published")
+
+    editions_data = fetch_dou_today(since=pub_date)
+    if not editions_data:
+        return {"editions_found": 0, "message": "No DOU editions found (holiday or scrape failed)"}
+
+    inserted = save_editions(editions_data)
+    logger.info("fetch_single_date(%s): found=%d inserted=%d", pub_date, len(editions_data), inserted)
+    return {"editions_found": len(editions_data), "inserted": inserted}
+
+
+@router.post("/backfill", status_code=202)
+@limiter.limit("3/hour")
+def backfill_dates(
+    request: Request,
+    from_date: date = Query(default=BACKFILL_MIN_DATE),
+    to_date: date | None = Query(default=None),
+):
+    """Enqueue lightweight metadata scrapes for weekdays missing from the database.
+
+    Each queued task calls fetch_dou_today(since=date) — Playwright headless,
+    NO PDF download, NO AI. Tasks are spread 8 s apart to avoid browser contention.
+
+    Security:
+    - from_date is capped at 2026-01-01 (no pre-deployment history)
+    - Range capped at BACKFILL_MAX_DAYS to prevent runaway queuing
+    - Rate limited to 3 calls/hour
+    """
+    from workers.tasks import scrape_date  # lazy import avoids Playwright at startup
+
+    end = to_date or date.today()
+
+    if from_date < BACKFILL_MIN_DATE:
+        raise HTTPException(status_code=422, detail=f"from_date cannot be before {BACKFILL_MIN_DATE}")
+    if from_date > end:
+        raise HTTPException(status_code=422, detail="from_date must not be after to_date")
+    if (end - from_date).days > BACKFILL_MAX_DAYS:
+        raise HTTPException(status_code=422, detail=f"Date range cannot exceed {BACKFILL_MAX_DAYS} days")
+
+    with get_session() as session:
+        existing: set[str] = {
+            d.isoformat()
+            for d in session.scalars(
+                select(Edition.pub_date).distinct()
+                .where(Edition.pub_date >= from_date)
+                .where(Edition.pub_date <= end)
+            ).all()
+        }
+
+    missing: list[date] = []
+    current = from_date
+    while current <= end:
+        if current.weekday() < 5 and current.isoformat() not in existing:
+            missing.append(current)
+        current += timedelta(days=1)
+
+    # Spread tasks 8 s apart so only one Playwright instance is active at a time.
+    for i, d in enumerate(missing):
+        scrape_date.apply_async(args=[d.isoformat()], countdown=i * 8)
+
+    logger.info(
+        "backfill: enqueued %d tasks from=%s to=%s (already_present=%d)",
+        len(missing), from_date, end, len(existing),
+    )
+    return {
+        "enqueued": len(missing),
+        "from_date": from_date.isoformat(),
+        "to_date": end.isoformat(),
+        "already_present": len(existing),
+    }
 
 
 @router.get("/dates", response_model=list[date])
@@ -119,6 +218,10 @@ def get_edition_summary_en(edition_id: int, request: Request):
             logger.error("translation_env_error", exc_info=exc)
             raise HTTPException(status_code=503, detail="Service unavailable")
         except Exception as exc:
+            exc_str = str(exc)
+            if "503" in exc_str or "UNAVAILABLE" in exc_str or "high demand" in exc_str:
+                logger.warning("translation_gemini_unavailable", extra={"edition_id": edition_id})
+                raise HTTPException(status_code=503, detail="Gemini temporarily unavailable — please try again in a moment.")
             logger.error("translation_failed", extra={"edition_id": edition_id}, exc_info=exc)
             raise HTTPException(status_code=500, detail="Internal server error during translation")
 

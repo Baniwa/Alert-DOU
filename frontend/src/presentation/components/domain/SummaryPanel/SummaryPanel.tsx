@@ -48,13 +48,18 @@ export function SummaryPanel({ editionId, summary, isLoading, isError, error, on
     data: translatedSummary,
     isLoading: isTranslating,
     isError: isTranslationError,
+    error: translationError,
+    refetch: retryTranslation,
   } = useQuery({
     queryKey: ['summary-en', editionId],
     queryFn: () => fetchEditionSummaryEn(editionId),
     enabled: requestTranslation && !!summary,
     staleTime: Infinity,
+    gcTime: 0,      // never persist error state across component unmounts
     retry: false,
   })
+
+  const translationApiError = translationError instanceof ApiError ? translationError : null
 
   const initialEn = summary?.summaryEn ?? null
 
@@ -65,7 +70,13 @@ export function SummaryPanel({ editionId, summary, isLoading, isError, error, on
   function handleToggleLang() {
     if (lang === 'pt') {
       setLang('en')
-      if (!initialEn) setRequestTranslation(true)
+      if (!initialEn) {
+        if (isTranslationError) {
+          retryTranslation()
+        } else {
+          setRequestTranslation(true)
+        }
+      }
     } else {
       setLang('pt')
     }
@@ -259,7 +270,23 @@ export function SummaryPanel({ editionId, summary, isLoading, isError, error, on
           </button>
 
           {isTranslationError && lang === 'en' && (
-            <span className="text-[10px] text-red-500 font-medium">Falha na tradução</span>
+            <span className="inline-flex items-center gap-1 text-[10px] text-red-500 font-medium">
+              {translationApiError?.status === 503
+                ? (translationApiError.message?.includes('temporarily')
+                    ? 'Gemini indisponível — tente novamente'
+                    : 'Configure GEMINI_API_KEY')
+                : translationApiError?.status === 429
+                ? 'Limite atingido'
+                : `Falha (${translationApiError?.status ?? '?'})`}
+              {translationApiError?.status !== 503 && (
+                <button
+                  onClick={() => retryTranslation()}
+                  className="underline hover:no-underline"
+                >
+                  · tentar novamente
+                </button>
+              )}
+            </span>
           )}
 
           <button onClick={handleShare} title="Copiar link"

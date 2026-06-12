@@ -1,4 +1,5 @@
 import logging
+from datetime import date as date_type
 
 from workers.celery_app import app
 
@@ -22,6 +23,31 @@ def scrape_today(self):
 
     except Exception as exc:
         logger.exception("scrape_today failed: %s", exc)
+        raise self.retry(exc=exc)
+
+
+@app.task(bind=True, max_retries=2, default_retry_delay=120)
+def scrape_date(self, pub_date_str: str):
+    """Scrape DOU edition metadata for a specific date — no PDF download, no AI.
+
+    Used by the backfill endpoint to populate the Edition table for historical
+    dates without running the full summarization pipeline.
+    """
+    try:
+        from scraper.fetcher import fetch_dou_today, save_editions
+
+        target = date_type.fromisoformat(pub_date_str)
+        editions = fetch_dou_today(since=target)
+        if not editions:
+            logger.info("scrape_date(%s): no editions found (holiday or weekend)", pub_date_str)
+            return {"inserted": 0, "date": pub_date_str}
+
+        inserted = save_editions(editions)
+        logger.info("scrape_date(%s): inserted %d editions", pub_date_str, inserted)
+        return {"inserted": inserted, "date": pub_date_str, "total_found": len(editions)}
+
+    except Exception as exc:
+        logger.exception("scrape_date(%s) failed: %s", pub_date_str, exc)
         raise self.retry(exc=exc)
 
 

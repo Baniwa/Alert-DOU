@@ -1,0 +1,15 @@
+# Local development overrides — applied automatically by docker compose.
+# NOT for production. Adds bind mounts + uvicorn --reload so Python changes
+# are reflected without rebuilding the image.
+#
+# Bypasses entrypoint.sh (has Windows CRLF on disk) and replicates it inline.
+services:
+  api:
+    volumes:
+      - .:/app
+    entrypoint: ["/bin/bash", "-c"]
+    command: ["alembic upgrade head && uvicorn api.main:app --host 0.0.0.0 --port 8000 --reload"]
+
+  worker:
+    volumes:
+      - .:/app
