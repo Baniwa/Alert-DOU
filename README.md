@@ -2,10 +2,15 @@
 
 > Automated scraping, AI summarisation and personal name tracking for the *Diário Oficial da União* — Brazil's federal government journal, published daily across hundreds of pages.
 
+[![CI](https://github.com/Baniwa/Alert-DOU/actions/workflows/ci.yml/badge.svg)](https://github.com/Baniwa/Alert-DOU/actions/workflows/ci.yml)
 [![Python](https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white)](https://python.org)
 [![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=black)](https://react.dev)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.136-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
+---
+
+<!-- Add screenshots after deploying. Suggested: homepage (3 cols), EditionDetail with summary, Name Tracker with results -->
 
 ---
 
@@ -127,8 +132,9 @@ API docs are available at `http://localhost:8000/docs`.
 | GET | `/editions/{id}/summary/en` | Get or generate the English translation |
 | POST | `/editions/fetch-date?date=YYYY-MM-DD` | Scrape a specific date synchronously (~20 s) |
 | POST | `/editions/backfill` | Queue metadata scrapes for a date range via Celery |
+| GET | `/editions/search?q=` | Full-text search across PDF content (accent-insensitive) |
 | GET | `/summaries/` | List all summaries (paginated) |
-| GET | `/summaries/search?q=` | Full-text search across summaries |
+| GET | `/summaries/search?q=` | Full-text search across AI summary text |
 | GET | `/health` | Health check |
 | GET | `/docs` | Swagger UI |
 
