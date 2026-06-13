@@ -25,10 +25,12 @@ _ALLOWED_HOSTS = {"www.in.gov.br", "in.gov.br", "pesquisa.in.gov.br", "download.
 def _validate_pdf_url(url: str) -> None:
     from urllib.parse import urlparse
     parsed = urlparse(url)
-    if parsed.scheme not in ("http", "https"):
+    if parsed.scheme != "https":
         raise ValueError(f"PDF URL scheme not allowed: {parsed.scheme!r}")
-    if parsed.hostname not in _ALLOWED_HOSTS:
+    if not parsed.hostname or parsed.hostname not in _ALLOWED_HOSTS:
         raise ValueError(f"PDF URL host not allowed: {parsed.hostname!r}")
+    if parsed.port is not None:
+        raise ValueError(f"Non-standard port not allowed in PDF URL: {parsed.port}")
 
 
 def _download_pdf(pdf_url: str) -> bytes:

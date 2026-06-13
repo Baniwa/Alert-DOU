@@ -6,7 +6,7 @@ from workers.celery_app import app
 logger = logging.getLogger(__name__)
 
 
-@app.task(bind=True, max_retries=3, default_retry_delay=300)
+@app.task(bind=True, max_retries=3, default_retry_delay=300, time_limit=360, soft_time_limit=300)
 def scrape_today(self):
     """Fetch today's DOU editions and persist to the database."""
     try:
@@ -26,7 +26,7 @@ def scrape_today(self):
         raise self.retry(exc=exc)
 
 
-@app.task(bind=True, max_retries=2, default_retry_delay=120)
+@app.task(bind=True, max_retries=2, default_retry_delay=120, time_limit=240, soft_time_limit=180)
 def scrape_date(self, pub_date_str: str):
     """Scrape DOU edition metadata for a specific date — no PDF download, no AI.
 
@@ -51,7 +51,7 @@ def scrape_date(self, pub_date_str: str):
         raise self.retry(exc=exc)
 
 
-@app.task(bind=True, max_retries=2, default_retry_delay=60)
+@app.task(bind=True, max_retries=2, default_retry_delay=60, time_limit=180, soft_time_limit=150)
 def summarize_edition(self, edition_id: int):
     """Generate and cache an AI summary for the given edition."""
     try:
