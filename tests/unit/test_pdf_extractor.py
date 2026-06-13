@@ -45,19 +45,21 @@ class TestValidatePdfUrl:
         "https://in.gov.br/arquivo.pdf",
         "https://pesquisa.in.gov.br/imprensa/core/file.pdf",
         "https://download.in.gov.br/sgpub/do/secao1/file.pdf",
-        "http://download.in.gov.br/file.pdf",
     ])
     def test_allows_dou_hosts(self, url: str):
         _validate_pdf_url(url)  # must not raise
 
     @pytest.mark.parametrize("url", [
         "https://example.com/evil.pdf",
-        "http://169.254.169.254/latest/meta-data/",
-        "http://localhost:5432/",
+        "http://download.in.gov.br/file.pdf",       # HTTP not allowed (SSRF downgrade)
+        "http://169.254.169.254/latest/meta-data/",  # cloud metadata endpoint
+        "http://localhost:5432/",                    # internal service
         "file:///etc/passwd",
         "ftp://download.in.gov.br/file.pdf",
         "https://evil.in.gov.br.attacker.com/file.pdf",
         "https://notdownload.in.gov.br/file.pdf",
+        "https:///path/to/file.pdf",                 # None hostname
+        "https://www.in.gov.br:9999/file.pdf",       # non-standard port
     ])
     def test_blocks_disallowed_hosts(self, url: str):
         with pytest.raises(ValueError):

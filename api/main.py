@@ -31,6 +31,11 @@ _CORS_ORIGINS = [
     if o.strip()
 ]
 
+if _IS_PROD:
+    _insecure = [o for o in _CORS_ORIGINS if not o.startswith("https://")]
+    if _insecure:
+        raise RuntimeError(f"Production CORS origins must use HTTPS: {_insecure}")
+
 _BANNER = r"""
   ██████╗  █████╗ ███╗   ██╗██╗██╗    ██╗ █████╗
   ██╔══██╗██╔══██╗████╗  ██║██║██║    ██║██╔══██╗

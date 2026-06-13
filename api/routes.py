@@ -11,7 +11,7 @@ from scraper.pdf_extractor import extract_pdf_text
 from api.limiter import limiter
 
 BACKFILL_MIN_DATE = date(2026, 1, 1)
-BACKFILL_MAX_DAYS = 365  # safety cap: never enqueue more than 1 year of tasks at once
+BACKFILL_MAX_DAYS = 90
 
 logger = logging.getLogger(__name__)
 
@@ -19,7 +19,11 @@ router = APIRouter(prefix="/editions", tags=["editions"])
 summary_router = APIRouter(prefix="/summaries", tags=["summaries"])
 
 # Regex para detectar CPF (com ou sem formatação) — usado para redação no log de auditoria
-_CPF_RE = re.compile(r'\b\d{3}[\.\s]?\d{3}[\.\s]?\d{3}[\-\s]?\d{2}\b')
+_CPF_RE = re.compile(r'\b\d{3}[.\s]?\d{3}[.\s]?\d{3}[-\s]?\d{2}\b')
+
+
+def _escape_like(value: str) -> str:
+    return value.replace("\\", "\\\\").replace("%", r"\%").replace("_", r"\_")
 
 
 def _excerpt(text: str, query: str, window: int = 220) -> str:
@@ -49,13 +53,14 @@ def search_editions(
     logger.info("edition_search ip=%s q=%r", request.client.host, log_query[:50])
 
     with get_session() as session:
-        pattern = f"%{query_clean}%"
+        escaped = _escape_like(query_clean)
+        pattern = f"%{escaped}%"
         stmt = (
             select(Edition)
             .where(Edition.full_text.isnot(None))
             .where(
                 func.unaccent(func.lower(Edition.full_text)).like(
-                    func.unaccent(func.lower(pattern))
+                    func.unaccent(func.lower(pattern)), escape="\\"
                 )
             )
             .order_by(Edition.pub_date.desc())
@@ -91,15 +96,14 @@ def search_summaries(
     - Rate limit: 20 req/min por IP para dificultar enumeração
     """
     query = q.strip()
-
-    # Auditoria: redacta CPF antes de logar para não armazenar PII em logs
     log_query = _CPF_RE.sub("[CPF]", query)
     logger.info("summary_search ip=%s q=%r", request.client.host, log_query[:50])
 
     with get_session() as session:
+        escaped = _escape_like(query)
         stmt = (
             select(AISummary)
-            .where(AISummary.summary.ilike(f"%{query}%"))
+            .where(AISummary.summary.ilike(f"%{escaped}%", escape="\\"))
             .order_by(AISummary.created_at.desc())
             .limit(limit)
         )
@@ -107,8 +111,8 @@ def search_summaries(
 
 
 @summary_router.get("/", response_model=list[SummaryOut])
-@limiter.limit("60/minute")
-def list_summaries(request: Request, limit: int = Query(default=100, le=500), offset: int = Query(default=0, ge=0)):
+@limiter.limit("30/minute")
+def list_summaries(request: Request, limit: int = Query(default=50, le=200), offset: int = Query(default=0, ge=0, le=50_000)):
     with get_session() as session:
         stmt = select(AISummary).order_by(AISummary.created_at.desc()).limit(limit).offset(offset)
         return session.scalars(stmt).all()
@@ -219,8 +223,8 @@ def list_edition_dates(request: Request):
 
 
 @router.get("/", response_model=list[EditionOut])
-@limiter.limit("60/minute")
-def list_editions(request: Request, pub_date: date | None = Query(default=None), limit: int = Query(default=100, le=500), offset: int = Query(default=0, ge=0)):
+@limiter.limit("30/minute")
+def list_editions(request: Request, pub_date: date | None = Query(default=None), limit: int = Query(default=50, le=200), offset: int = Query(default=0, ge=0, le=50_000)):
     with get_session() as session:
         stmt = select(Edition).order_by(Edition.pub_date.desc()).limit(limit).offset(offset)
         if pub_date:
