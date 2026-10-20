@@ -2,9 +2,13 @@ name: CI
 
 on:
   push:
-    branches: [main, "feature/**", "fix/**", "chore/**"]
+    branches: [main]
   pull_request:
     branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   test-backend:
@@ -49,10 +53,13 @@ jobs:
         run: npm ci
 
       - name: Type check
-        run: npx tsc --noEmit
+        run: npx tsc --noEmit -p tsconfig.app.json
 
       - name: Lint
         run: npm run lint
+
+      - name: Unit tests
+        run: npm test -- --run
 
       - name: Build
         run: npm run build

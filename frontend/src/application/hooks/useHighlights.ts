@@ -50,18 +50,19 @@ export function useHighlights(editionId: number) {
     const trimmed = phrase.trim()
     if (!trimmed || trimmed.length > MAX_PHRASE_LENGTH) return
     if (!SAFE_PHRASE_RE.test(trimmed)) return
-    if (highlights.some((h) => h.phrase === trimmed)) return  // phrase already highlighted
-    if (highlights.length >= MAX_HIGHLIGHTS_PER_EDITION) return
 
     setStore((prev) => {
+      const current = prev[editionId] ?? []
+      if (current.some((h) => h.phrase === trimmed)) return prev  // phrase already highlighted
+      if (current.length >= MAX_HIGHLIGHTS_PER_EDITION) return prev
       const next = {
         ...prev,
-        [editionId]: [...(prev[editionId] ?? []), { phrase: trimmed, occurrenceIndex }],
+        [editionId]: [...current, { phrase: trimmed, occurrenceIndex }],
       }
       save(next)
       return next
     })
-  }, [editionId, highlights])
+  }, [editionId])
 
   const remove = useCallback((phrase: string) => {
     setStore((prev) => {

@@ -20,10 +20,19 @@ cd frontend && npm install && npm run dev
 
 ## Making Changes
 
-1. Fork the repo and create a branch from `main`
-2. Make your changes
-3. Run the tests: `pytest` (Python) and `npm run build` (frontend typecheck)
-4. Open a pull request with a clear description of what changed and why
+`main` is protected: it only moves through pull requests with a green CI. No direct pushes, no force pushes.
+
+1. Branch from an up-to-date `main` using a prefix that says what the change is:
+   `feat/`, `fix/`, `chore/`, `docs/`, `refactor/`
+2. Keep one concern per branch. A bug fix and a new feature go in separate PRs.
+3. Commit messages follow [Conventional Commits](https://www.conventionalcommits.org/): `fix(api): serve OpenAPI schema behind /api`
+4. Run the checks locally before pushing:
+   - `pytest`
+   - `cd frontend && npm run lint && npx tsc --noEmit -p tsconfig.app.json && npm test -- --run`
+5. Open the pull request against `main` and fill in the template. CI must pass before merging.
+6. Merge with **squash**. The branch is deleted automatically after the merge.
+
+Dependency updates come from Dependabot, grouped weekly into one PR per ecosystem.
 
 ## Code Style
 
