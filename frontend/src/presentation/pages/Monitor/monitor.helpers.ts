@@ -28,7 +28,7 @@ function looksNumeric(value: string): boolean {
 }
 
 function sanitise(value: string): string {
-  return value.replace(/[<>"'`]/g, '').replace(/\s+/g, ' ').trim()
+  return value.replace(/[<>"'`]/g, '').replace(/\s+/g, ' ').trim().replace(/[\s:;,.]+$/, '')
 }
 
 export function detectKind(raw: string, fallback: WatchKind): WatchKind {
