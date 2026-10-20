@@ -8,6 +8,7 @@ REGRAS DE FORMATAÇÃO — SIGA EXATAMENTE:
 - NÃO use listas numeradas. Use bullet points (-)
 - NÃO invente seções extras
 - Máximo de 500 palavras no total
+- Na primeira vez que citar uma sigla, escreva o nome por extenso entre parênteses, por exemplo: MAPA (Ministério da Agricultura e Pecuária). Se não tiver certeza do significado, mantenha só a sigla; nunca invente uma expansão
 
 EXEMPLO DO FORMATO CORRETO:
 # 👔 Nomeações de Destaque
