@@ -350,7 +350,7 @@ def get_edition_summary(
             raise HTTPException(status_code=500, detail="Internal server error during AI summarization")
 
         summary = AISummary(
-            edition_id=edition_id,
+            edition=edition,
             model=client.model,
             summary=summary_text,
             pages_read=pages_read,
