@@ -32,7 +32,7 @@ def test_refreshes_links_and_retries_failed_edition_once():
         attempts["n"] += 1
         if attempts["n"] == 1:
             raise RuntimeError("signed URL expired")
-        return "texto"
+        return 3
 
     with patch.object(indexer, "pending_edition_ids", return_value=[7]), \
          patch.object(indexer, "index_edition", side_effect=flaky), \

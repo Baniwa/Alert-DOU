@@ -63,15 +63,15 @@ def normalise_text(raw: str) -> str:
     return _WHITESPACE.sub(" ", _HYPHENATED_LINE_BREAK.sub(r"\1\2", raw)).strip()
 
 
-def extract_pdf_text(pdf_url: str, max_pages: int | None = None) -> tuple[str, int]:
-    """Download the PDF and return (normalised text, pages read). Reads every page by default."""
+def extract_pdf_pages(pdf_url: str, max_pages: int | None = None) -> list[str]:
+    """Download the PDF and return the normalised text of each page, in order. Reads every page by default."""
     pdf_bytes = _download_pdf(pdf_url)
 
     document = pdfium.PdfDocument(pdf_bytes)
     try:
         total = len(document)
         limit = total if max_pages is None else min(max_pages, total)
-        parts: list[str] = []
+        pages: list[str] = []
         for index in range(limit):
             page = document[index]
             textpage = page.get_textpage()
@@ -80,13 +80,12 @@ def extract_pdf_text(pdf_url: str, max_pages: int | None = None) -> tuple[str, i
             finally:
                 textpage.close()
                 page.close()
-            if text and text.strip():
-                parts.append(text)
+            pages.append(normalise_text(text or ""))
     finally:
         document.close()
 
-    if not parts:
+    if not any(pages):
         raise RuntimeError(f"No text extracted from PDF (pages read: {limit})")
 
     logger.info("Extracted %d/%d pages", limit, total)
-    return normalise_text("\n".join(parts)), limit
+    return pages

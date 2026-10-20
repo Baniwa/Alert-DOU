@@ -1,11 +1,11 @@
 import logging
 from datetime import date, datetime, timezone
 
-from sqlalchemy import select
+from sqlalchemy import delete, insert, select
 
 from database import get_session
-from database.models import Edition
-from scraper.pdf_extractor import extract_pdf_text
+from database.models import Edition, EditionPage
+from scraper.pdf_extractor import extract_pdf_pages
 
 logger = logging.getLogger(__name__)
 
@@ -25,8 +25,8 @@ def pending_edition_ids(limit: int) -> list[int]:
         return list(session.scalars(stmt))
 
 
-def index_edition(edition_id: int) -> str:
-    """Extract every page of the edition's PDF and store it. Returns the indexed text."""
+def index_edition(edition_id: int) -> int:
+    """Extract every page of the edition's PDF and store one row per page. Returns the page count."""
     with get_session() as session:
         edition = session.get(Edition, edition_id)
         if edition is None:
@@ -34,21 +34,47 @@ def index_edition(edition_id: int) -> str:
         pdf_url = edition.pdf_url
 
     try:
-        text, pages = extract_pdf_text(pdf_url)
+        pages = extract_pdf_pages(pdf_url)
     except Exception:
         with get_session() as session:
-            edition = session.get(Edition, edition_id)
-            edition.index_attempts += 1
+            session.get(Edition, edition_id).index_attempts += 1
         raise
 
     with get_session() as session:
+        session.execute(delete(EditionPage).where(EditionPage.edition_id == edition_id))
+        session.execute(
+            insert(EditionPage),
+            [
+                {"edition_id": edition_id, "page_number": number, "text": text}
+                for number, text in enumerate(pages, start=1)
+                if text
+            ],
+        )
         edition = session.get(Edition, edition_id)
-        edition.full_text = text
-        edition.text_pages = pages
+        edition.text_pages = len(pages)
         edition.text_indexed_at = datetime.now(timezone.utc)
 
-    logger.info("index_edition: edition %d indexed (%d pages, %d chars)", edition_id, pages, len(text))
-    return text
+    logger.info("index_edition: edition %d indexed (%d pages)", edition_id, len(pages))
+    return len(pages)
+
+
+def edition_text(edition_id: int, max_chars: int) -> str:
+    """Indexed text of the edition in page order, stopping once max_chars is reached."""
+    parts: list[str] = []
+    size = 0
+    with get_session() as session:
+        rows = session.scalars(
+            select(EditionPage.text)
+            .where(EditionPage.edition_id == edition_id)
+            .order_by(EditionPage.page_number)
+            .execution_options(yield_per=20)
+        )
+        for text in rows:
+            parts.append(text)
+            size += len(text) + 1
+            if size >= max_chars:
+                break
+    return " ".join(parts)[:max_chars]
 
 
 def refresh_pdf_urls(pub_date: date) -> None:
@@ -60,7 +86,7 @@ def refresh_pdf_urls(pub_date: date) -> None:
 
 
 def index_pending(limit: int = 10, max_refreshes: int = 3) -> dict:
-    """Index editions that have no full text yet. Signed PDF links expire, so a failed
+    """Index editions that have no text yet. Signed PDF links expire, so a failed
     edition gets one retry after its date is scraped again for fresh links."""
     indexed, failed = 0, []
     for edition_id in pending_edition_ids(limit):

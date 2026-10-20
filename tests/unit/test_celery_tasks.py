@@ -23,7 +23,8 @@ def _make_stubs():
     ai_stub._detect_section = MagicMock(return_value="secao1")
 
     indexer_stub = MagicMock()
-    indexer_stub.index_edition = MagicMock(return_value="texto")
+    indexer_stub.index_edition = MagicMock(return_value=4)
+    indexer_stub.edition_text = MagicMock(return_value="texto")
 
     ai_pkg_stub = MagicMock()
 
@@ -114,7 +115,7 @@ class TestSummarizeEdition:
 
         with patch("database.get_session", _ctx(session)), \
              patch("sqlalchemy.select", _mock_select()), \
-             patch.object(indexer_stub, "index_edition", return_value="texto pdf") as index, \
+             patch.object(indexer_stub, "index_edition", return_value=4) as index, \
              patch.object(ai_stub, "GeminiClient", return_value=mock_client):
             from workers.tasks import summarize_edition
             result = summarize_edition.run(edition_id=5)

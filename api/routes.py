@@ -6,9 +6,9 @@ from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from api.schemas import EditionOut, EditionSearchResult, SummaryOut
 from database import Edition, get_session
-from database.models import AISummary
+from database.models import AISummary, EditionPage
 from ai.client import GeminiClient, _detect_section
-from scraper.indexer import index_edition, refresh_pdf_urls
+from scraper.indexer import edition_text, index_edition, refresh_pdf_urls
 from api.limiter import limiter
 
 BACKFILL_MIN_DATE = date(2026, 1, 1)
@@ -27,9 +27,10 @@ def _escape_like(value: str) -> str:
     return value.replace("\\", "\\\\").replace("%", r"\%").replace("_", r"\_")
 
 
-_SEARCHABLE_TEXT = func.f_unaccent(func.lower(Edition.full_text))
+_SEARCHABLE_TEXT = func.f_unaccent(func.lower(EditionPage.text))
 _EXCERPT_BEFORE = 120
 _EXCERPT_AFTER = 100
+_SUMMARY_MAX_CHARS = 400_000
 
 
 def _search_term(q: str) -> str:
@@ -43,10 +44,10 @@ def search_editions(
     q: str = Query(..., min_length=2, max_length=100),
     limit: int = Query(default=20, le=50, ge=1),
 ):
-    """Busca no texto integral dos PDFs do DOU (sem acento, sem diferenciar maiúsculas).
+    """Busca no texto integral das edições indexadas (sem acento, sem diferenciar maiúsculas).
 
-    Usa o índice trigram de f_unaccent(lower(full_text)); o trecho de contexto é recortado
-    no banco para não trafegar o texto inteiro (alguns MB por edição).
+    Uma linha por edição: a primeira página onde o termo aparece, com o trecho de contexto
+    recortado no banco, e quantas páginas da edição o mencionam.
     """
     term = _search_term(q)
     log_query = _CPF_RE.sub("[CPF]", term)
@@ -54,18 +55,23 @@ def search_editions(
 
     needle = func.f_unaccent(func.lower(term))
     start = func.greatest(func.strpos(_SEARCHABLE_TEXT, needle) - _EXCERPT_BEFORE, 1)
-    stmt = (
+    hits = (
         select(
-            Edition.id,
-            Edition.title,
-            Edition.edition_number,
-            Edition.pub_date,
+            EditionPage.edition_id,
+            EditionPage.page_number,
             start.label("start"),
-            func.substr(Edition.full_text, start, _EXCERPT_BEFORE + len(term) + _EXCERPT_AFTER).label("snippet"),
-            func.length(Edition.full_text).label("length"),
+            func.substr(EditionPage.text, start, _EXCERPT_BEFORE + len(term) + _EXCERPT_AFTER).label("snippet"),
+            func.length(EditionPage.text).label("length"),
+            func.row_number().over(partition_by=EditionPage.edition_id, order_by=EditionPage.page_number).label("rank"),
+            func.count().over(partition_by=EditionPage.edition_id).label("matching_pages"),
         )
-        .where(Edition.full_text.isnot(None))
         .where(_SEARCHABLE_TEXT.like(func.f_unaccent(func.lower(f"%{_escape_like(term)}%")), escape="\\"))
+        .subquery()
+    )
+    stmt = (
+        select(Edition.id, Edition.title, Edition.edition_number, Edition.pub_date, hits)
+        .join(hits, hits.c.edition_id == Edition.id)
+        .where(hits.c.rank == 1)
         .order_by(Edition.pub_date.desc(), Edition.id.desc())
         .limit(limit)
     )
@@ -79,6 +85,8 @@ def search_editions(
             title=row.title,
             edition_number=row.edition_number,
             pub_date=row.pub_date,
+            page=row.page_number,
+            matching_pages=row.matching_pages,
             excerpt=("…" if row.start > 1 else "")
             + row.snippet
             + ("…" if row.start + len(row.snippet) <= row.length else ""),
@@ -310,23 +318,24 @@ def get_edition_summary_en(edition_id: int, request: Request):
 def _indexed_text(edition_id: int) -> tuple[str, int]:
     with get_session() as session:
         edition = session.get(Edition, edition_id)
-        if edition.text_indexed_at:
-            return edition.full_text or "", edition.text_pages or 0
+        indexed = edition.text_indexed_at is not None
         pub_date = edition.pub_date
 
-    try:
-        text = index_edition(edition_id)
-    except Exception as exc:
-        logger.warning(f"PDF extraction failed for edition {edition_id} (link probably expired): {exc}. Refreshing links...")
+    if not indexed:
         try:
-            refresh_pdf_urls(pub_date)
-            text = index_edition(edition_id)
-        except Exception as inner_exc:
-            logger.error(f"Re-scrape and re-extraction failed for edition {edition_id}: {inner_exc}", exc_info=True)
-            raise HTTPException(status_code=502, detail="Falha de conexão com a Imprensa Nacional. O link expirou e não foi possível obter um novo no momento.")
+            index_edition(edition_id)
+        except Exception as exc:
+            logger.warning(f"PDF extraction failed for edition {edition_id} (link probably expired): {exc}. Refreshing links...")
+            try:
+                refresh_pdf_urls(pub_date)
+                index_edition(edition_id)
+            except Exception as inner_exc:
+                logger.error(f"Re-scrape and re-extraction failed for edition {edition_id}: {inner_exc}", exc_info=True)
+                raise HTTPException(status_code=502, detail="Falha de conexão com a Imprensa Nacional. O link expirou e não foi possível obter um novo no momento.")
 
     with get_session() as session:
-        return text, session.get(Edition, edition_id).text_pages or 0
+        pages = session.get(Edition, edition_id).text_pages or 0
+    return edition_text(edition_id, _SUMMARY_MAX_CHARS), pages
 
 
 @router.get("/{edition_id}/summary", response_model=SummaryOut)
