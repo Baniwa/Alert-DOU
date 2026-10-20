@@ -289,7 +289,11 @@ def get_edition_summary_en(edition_id: int, request: Request):
 
 @router.get("/{edition_id}/summary", response_model=SummaryOut)
 @limiter.limit("30/minute")
-def get_edition_summary(edition_id: int, request: Request):
+def get_edition_summary(
+    edition_id: int,
+    request: Request,
+    generate: bool = Query(default=True, description="false = só devolve o resumo salvo, sem chamar a IA"),
+):
     with get_session() as session:
         edition = session.get(Edition, edition_id)
         if not edition:
@@ -306,6 +310,9 @@ def get_edition_summary(edition_id: int, request: Request):
                 except Exception:
                     pass  # best-effort — don't break summary response
             return cached
+
+        if not generate:
+            raise HTTPException(status_code=404, detail="Summary not generated yet")
 
         if not edition.pdf_url:
             raise HTTPException(status_code=422, detail="Edition has no PDF URL")

@@ -3,7 +3,7 @@ import type { Edition } from '../../domain/entities/Edition'
 import type { AISummary } from '../../domain/entities/AISummary'
 import { toEdition, toEditionList } from '../mappers/edition.mapper'
 import { toAISummary } from '../mappers/summary.mapper'
-import { apiClient } from './client'
+import { ApiError, apiClient } from './client'
 import type { EditionDTO } from './dto/EditionDTO'
 import type { AISummaryDTO } from './dto/AISummaryDTO'
 
@@ -22,6 +22,18 @@ export async function fetchEditionSummary(editionId: number): Promise<AISummary>
   // Re-scrape + PDF download + AI generation can take up to ~60s for older editions
   const { data } = await apiClient.get<AISummaryDTO>(`/editions/${editionId}/summary`, { timeout: 240_000 })
   return toAISummary(data)
+}
+
+export async function fetchExistingSummary(editionId: number): Promise<AISummary | null> {
+  try {
+    const { data } = await apiClient.get<AISummaryDTO>(`/editions/${editionId}/summary`, {
+      params: { generate: false },
+    })
+    return toAISummary(data)
+  } catch (err) {
+    if (err instanceof ApiError && err.status === 404) return null
+    throw err
+  }
 }
 
 export async function fetchEditionSummaryEn(editionId: number): Promise<AISummary> {

@@ -70,3 +70,16 @@ class TestSearchAuditLog:
 
         assert "123.456.789-09" not in caplog.text
         assert "[CPF]" in caplog.text
+
+
+class TestSummaryWithoutGeneration:
+    def test_generate_false_returns_404_when_missing(self):
+        client = TestClient(app)
+        session = MagicMock()
+        session.get.return_value = MagicMock(id=1, pdf_url="https://example.com/a.pdf")
+        session.scalar.return_value = None
+        with patch("api.routes.get_session") as gs, patch("api.routes.extract_pdf_text") as extract:
+            gs.return_value.__enter__.return_value = session
+            response = client.get("/editions/1/summary", params={"generate": "false"})
+        assert response.status_code == 404
+        extract.assert_not_called()
