@@ -1,6 +1,6 @@
 ## What changed and why
 
-<!-- Describe the change and the motivation behind it -->
+<!-- One concern per PR. Link the issue if there is one: Closes #123 -->
 
 ## Type of change
 
@@ -9,14 +9,19 @@
 - [ ] Refactor / cleanup
 - [ ] Documentation
 - [ ] Security fix
+- [ ] Dependencies / CI
 
 ## How to test
 
-<!-- Steps to verify this works correctly -->
+<!-- Steps a reviewer can follow to see the change working -->
+
+## Screenshots
+
+<!-- Required for UI changes: desktop and mobile -->
 
 ## Checklist
 
-- [ ] The change works locally (`docker compose up -d` + `npm run dev`)
-- [ ] No sensitive data (API keys, passwords) committed
-- [ ] Frontend builds without TypeScript errors (`npm run build`)
-- [ ] Python tests pass (`pytest`)
+- [ ] `pytest` passes
+- [ ] Frontend lint, type-check and tests pass
+- [ ] Database changes ship with an Alembic migration
+- [ ] No secrets, personal data or real CPFs committed

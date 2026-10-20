@@ -61,6 +61,7 @@ app = FastAPI(
     description="Real-time monitoring of Brazil's Diário Oficial da União.",
     version="0.1.0",
     lifespan=lifespan,
+    root_path=os.environ.get("ROOT_PATH", ""),
     docs_url="/docs",
     redoc_url="/redoc",
     openapi_url="/openapi.json",
