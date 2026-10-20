@@ -1,6 +1,6 @@
 import { format } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
-import { Check, Download, Share2, Highlighter, Trash2, Languages, Loader2, X } from 'lucide-react'
+import { Check, Download, Share2, Highlighter, Trash2, Languages, Loader2, X, Eye } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
@@ -11,6 +11,7 @@ import type { AISummary } from '../../../../domain/entities/AISummary'
 import { ApiError } from '../../../../infrastructure/api/client'
 import { fetchEditionSummaryEn } from '../../../../infrastructure/api/editions.api'
 import { useHighlights, applyHighlightsToMarkdown } from '../../../../application/hooks/useHighlights'
+import { addItem, type WatchKind } from '../../../pages/Monitor/monitor.helpers'
 
 const sanitizeSchema = {
   ...defaultSchema,
@@ -44,6 +45,7 @@ export function SummaryPanel({ editionId, summary, isLoading, isError, error, re
   const [lang, setLang] = useState<'pt' | 'en'>('pt')
   const [requestTranslation, setRequestTranslation] = useState(false)
   const [toolbar, setToolbar] = useState<SelectionToolbar | null>(null)
+  const [monitorNotice, setMonitorNotice] = useState<string | null>(null)
 
   const {
     data: translatedSummary,
@@ -153,6 +155,17 @@ export function SummaryPanel({ editionId, summary, isLoading, isError, error, re
   function handleHighlight() {
     if (!toolbar) return
     add(toolbar.phrase, toolbar.occurrenceIndex)
+    window.getSelection()?.removeAllRanges()
+    setToolbar(null)
+  }
+
+  function handleMonitor() {
+    if (!toolbar) return
+    const title = summary?.editionTitle ?? ''
+    const kind: WatchKind = title.includes('Seção 3') ? 'empresa' : title.includes('Seção 2') ? 'pessoa' : 'termo'
+    const result = addItem(toolbar.phrase, kind)
+    setMonitorNotice(result.ok ? `"${toolbar.phrase}" adicionado ao Monitor.` : result.error)
+    setTimeout(() => setMonitorNotice(null), 3000)
     window.getSelection()?.removeAllRanges()
     setToolbar(null)
   }
@@ -376,6 +389,20 @@ export function SummaryPanel({ editionId, summary, isLoading, isError, error, re
                 Destacar trecho
               </button>
             )}
+            <span className="w-px h-3 bg-gray-600" />
+            <button
+              onMouseDown={(e) => { e.preventDefault(); handleMonitor() }}
+              className="inline-flex items-center gap-1 hover:text-[#FFCD00] transition-colors whitespace-nowrap"
+            >
+              <Eye size={12} />
+              Monitorar
+            </button>
+          </div>
+        )}
+
+        {monitorNotice && (
+          <div role="status" className="fixed bottom-6 left-1/2 -translate-x-1/2 z-30 bg-gray-900 text-white text-[12px] font-semibold px-4 py-2 rounded-lg shadow-xl">
+            {monitorNotice}
           </div>
         )}
       </div>

@@ -34,7 +34,16 @@ _SUMMARY_MAX_CHARS = 400_000
 
 
 def _search_term(q: str) -> str:
-    return " ".join(q.split())
+    """Turn a query into the form the DOU prints it. CPFs are published masked (***.456.789-**),
+    so only the six middle digits can be matched; CNPJs are published in full, formatted."""
+    term = " ".join(q.split())
+    digits = re.sub(r"\D", "", term)
+    if re.fullmatch(r"[\d.\-\s/]+", term):
+        if len(digits) == 11:
+            return f"***.{digits[3:6]}.{digits[6:9]}-**"
+        if len(digits) == 14:
+            return f"{digits[:2]}.{digits[2:5]}.{digits[5:8]}/{digits[8:12]}-{digits[12:]}"
+    return term
 
 
 @router.get("/search", response_model=list[EditionSearchResult])

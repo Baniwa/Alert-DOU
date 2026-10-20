@@ -61,7 +61,21 @@ export interface EditionSearchResult {
   title: string
   edition_number: string
   pub_date: string
+  page: number
+  matching_pages: number
   excerpt: string
+}
+
+export interface SearchCoverage {
+  indexed_editions: number
+  total_editions: number
+  first_date: string | null
+  last_date: string | null
+}
+
+export async function fetchSearchCoverage(): Promise<SearchCoverage> {
+  const { data } = await apiClient.get<SearchCoverage>('/editions/coverage')
+  return data
 }
 
 export async function searchEditionsByName(q: string, limit = 20): Promise<EditionSearchResult[]> {
