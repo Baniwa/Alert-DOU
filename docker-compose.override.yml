@@ -13,3 +13,7 @@ services:
   worker:
     volumes:
       - .:/app
+
+  celery:
+    volumes:
+      - .:/app

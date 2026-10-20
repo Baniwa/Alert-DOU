@@ -30,6 +30,22 @@ services:
       redis:
         condition: service_healthy
 
+  celery:
+    build: .
+    # Runs the queued tasks (POST /editions/backfill). The worker service above only runs the scheduler.
+    entrypoint: []
+    command: ["celery", "-A", "workers.celery_app", "worker", "--loglevel=info", "--concurrency=1"]
+    env_file:
+      - .env
+    environment:
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-alertdou}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@db:5432/${POSTGRES_DB:-alertdou}
+      - REDIS_URL=redis://redis:6379/0
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
   db:
     image: postgres:16.3-alpine
     environment:
