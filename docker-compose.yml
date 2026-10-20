@@ -34,7 +34,7 @@ services:
     build: .
     # Runs the queued tasks (POST /editions/backfill). The worker service above only runs the scheduler.
     entrypoint: []
-    command: ["celery", "-A", "workers.celery_app", "worker", "--loglevel=info", "--concurrency=1"]
+    command: ["python", "-m", "celery", "-A", "workers.celery_app", "worker", "--loglevel=info", "--concurrency=1"]
     env_file:
       - .env
     environment:
