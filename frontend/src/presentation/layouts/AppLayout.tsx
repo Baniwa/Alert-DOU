@@ -1,7 +1,7 @@
-import { BookOpen, Bell, Code2, LayoutDashboard, Sparkles, ExternalLink, Landmark, Radar, Newspaper, Info, Star } from 'lucide-react'
+import { BookOpen, Eye, Code2, LayoutDashboard, Sparkles, ExternalLink, Landmark, Radar, Newspaper, Info, Star } from 'lucide-react'
 import { NavLink, Outlet } from 'react-router-dom'
-import { useNameAlerts } from '../../application/hooks/useNameAlerts'
-import { loadNames } from '../pages/Alerts/alerts.helpers'
+import { useMonitorMatches } from '../../application/hooks/useMonitorMatches'
+import { loadItems, readLastVisit } from '../pages/Monitor/monitor.helpers'
 
 const API_BASE = import.meta.env.VITE_API_URL ?? 'http://localhost:8000'
 
@@ -10,20 +10,20 @@ const NAV = [
   { to: '/editions', icon: LayoutDashboard, label: 'Edições' },
   { to: '/summaries', icon: Sparkles, label: 'Resumos IA' },
   { to: '/radar', icon: Radar, label: 'Radar' },
-  { to: '/alerts', icon: Bell, label: 'Name Tracker' },
+  { to: '/monitor', icon: Eye, label: 'Monitor' },
   { to: '/about', icon: Info, label: 'Sobre' },
   { to: 'https://github.com/Baniwa/Alert-DOU/wiki', icon: BookOpen, label: 'Documentação', external: true },
   { to: `${API_BASE}/docs`, icon: Code2, label: 'API (devs)', external: true },
 ]
 
-function useAlertBadge() {
-  const names = loadNames()
-  const { namesWithAlerts, isLoading } = useNameAlerts(names)
-  return { count: namesWithAlerts, isLoading }
+function useMonitorBadge() {
+  const values = loadItems().map((i) => i.value)
+  const { withNewResults } = useMonitorMatches(values, readLastVisit())
+  return withNewResults
 }
 
 export function AppLayout() {
-  const alertBadge = useAlertBadge()
+  const monitorBadge = useMonitorBadge()
 
   return (
     <div className="flex h-screen bg-[#F8F9FA] overflow-hidden text-gray-900 font-sans">
@@ -81,9 +81,9 @@ export function AppLayout() {
               >
                 <Icon size={16} />
                 <span className="text-[13px] flex-1">{label}</span>
-                {to === '/alerts' && alertBadge.count > 0 && (
+                {to === '/monitor' && monitorBadge > 0 && (
                   <span className="text-[10px] font-extrabold bg-red-500 text-white rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1 leading-none">
-                    {alertBadge.count}
+                    {monitorBadge}
                   </span>
                 )}
               </NavLink>
