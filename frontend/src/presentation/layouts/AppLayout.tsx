@@ -1,4 +1,4 @@
-import { BookOpen, Bell, LayoutDashboard, Sparkles, ExternalLink, Landmark, Radar, Newspaper, Info, Star } from 'lucide-react'
+import { BookOpen, Bell, Code2, LayoutDashboard, Sparkles, ExternalLink, Landmark, Radar, Newspaper, Info, Star } from 'lucide-react'
 import { NavLink, Outlet } from 'react-router-dom'
 import { useNameAlerts } from '../../application/hooks/useNameAlerts'
 import { loadNames } from '../pages/Alerts/alerts.helpers'
@@ -12,7 +12,8 @@ const NAV = [
   { to: '/radar', icon: Radar, label: 'Radar' },
   { to: '/alerts', icon: Bell, label: 'Name Tracker' },
   { to: '/about', icon: Info, label: 'Sobre' },
-  { to: `${API_BASE}/docs`, icon: BookOpen, label: 'Documentação', external: true },
+  { to: 'https://github.com/Baniwa/Alert-DOU/wiki', icon: BookOpen, label: 'Documentação', external: true },
+  { to: `${API_BASE}/docs`, icon: Code2, label: 'API (devs)', external: true },
 ]
 
 function useAlertBadge() {

@@ -1,19 +1,14 @@
 import { format, isWeekend, subDays, subMonths } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
-import { Calendar, ChevronLeft, ChevronRight, FileText, Layers, Scale, Users, Sparkles, ArrowRight, RefreshCw } from 'lucide-react'
-import { useEffect, useMemo, useState } from 'react'
+import { Calendar, ChevronLeft, ChevronRight, FileText, Layers, Scale, Users, Sparkles, ArrowRight, RefreshCw, GraduationCap } from 'lucide-react'
+import { useEffect, useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useSearchParams, Link } from 'react-router-dom'
 import { useEditions } from '../../../application/hooks/useEditions'
 import { editionKeys } from '../../../application/query-keys/editions.keys'
 import { Section } from '../../../domain/value-objects/Section'
 import type { Edition } from '../../../domain/entities/Edition'
-import type { AISummary } from '../../../domain/entities/AISummary'
-import { fetchEditionSummary, fetchAvailableDates, fetchEditionsForDate } from '../../../infrastructure/api/editions.api'
-import { apiClient } from '../../../infrastructure/api/client'
-import { toAISummary } from '../../../infrastructure/mappers/summary.mapper'
-import type { AISummaryDTO } from '../../../infrastructure/api/dto/AISummaryDTO'
-import { ApiError } from '../../../infrastructure/api/client'
+import { fetchAvailableDates, fetchEditionsForDate, fetchExistingSummary } from '../../../infrastructure/api/editions.api'
 import { CalendarPicker } from '../../components/ui/CalendarPicker'
 
 // ── constants ───────────────────────────────────────────────────────────────
@@ -39,11 +34,6 @@ function nextWorkday(d: Date): Date {
   return n
 }
 
-const fetchAllSummaries = async (): Promise<AISummary[]> => {
-  const { data } = await apiClient.get<AISummaryDTO[]>('/summaries')
-  return data.map(toAISummary)
-}
-
 // ── section column config ────────────────────────────────────────────────────
 
 const SECTION_CONFIG = {
@@ -51,6 +41,11 @@ const SECTION_CONFIG = {
     icon: Scale,
     label: 'Seção 1',
     sublabel: 'Atos Normativos',
+    about: [
+      'Publica os atos de interesse geral: leis, medidas provisórias, decretos, portarias, resoluções e instruções normativas.',
+      'Hierarquia: Constituição, depois leis e medidas provisórias, depois decretos que as regulamentam, e por fim portarias, resoluções e instruções normativas dos órgãos.',
+      'Lei sem data de vigência expressa entra em vigor 45 dias após a publicação (LINDB, art. 1º).',
+    ],
     accent: 'border-t-[#1351B4]',
     iconBg: 'bg-[#1351B4]/10',
     iconColor: 'text-[#1351B4]',
@@ -60,6 +55,10 @@ const SECTION_CONFIG = {
     icon: Users,
     label: 'Seção 2',
     sublabel: 'Pessoal',
+    about: [
+      'Publica os atos de pessoal do serviço público federal: nomeações, exonerações, aposentadorias, pensões, cessões e designações.',
+      'Para quem foi aprovado em concurso, a nomeação abre prazo de 30 dias para a posse; depois da posse, são 15 dias para entrar em exercício (Lei 8.112/1990, arts. 13 e 15).',
+    ],
     accent: 'border-t-[#C9A84C]',
     iconBg: 'bg-[#C9A84C]/15',
     iconColor: 'text-[#C9A84C]',
@@ -69,6 +68,10 @@ const SECTION_CONFIG = {
     icon: FileText,
     label: 'Seção 3',
     sublabel: 'Contratos',
+    about: [
+      'Publica avisos de licitação, extratos de contratos, convênios, resultados de julgamento e penalidades aplicadas a fornecedores.',
+      'O extrato de contrato traz partes, objeto, valor e vigência. As sanções a empresas seguem a Lei 14.133/2021, art. 156: advertência, multa, impedimento de licitar e declaração de inidoneidade.',
+    ],
     accent: 'border-t-[#168821]',
     iconBg: 'bg-[#168821]/10',
     iconColor: 'text-[#168821]',
@@ -81,30 +84,45 @@ const SECTION_CONFIG = {
 interface SectionColumnProps {
   section: Section
   edition: Edition | undefined
-  existingSummary: AISummary | undefined
 }
 
-function SectionColumn({ section, edition, existingSummary }: SectionColumnProps) {
+function SectionGuide({ section }: { section: Section }) {
+  const cfg = SECTION_CONFIG[section as keyof typeof SECTION_CONFIG]
+  return (
+    <details className="group px-5 py-3 border-t border-gray-100 bg-gray-50/60">
+      <summary className="flex items-center gap-1.5 cursor-pointer list-none text-[11px] font-bold text-gray-600 hover:text-[#1351B4]">
+        <GraduationCap size={13} className={cfg.iconColor} />
+        Entenda a {cfg.label}
+        <ChevronRight size={12} className="ml-auto transition-transform group-open:rotate-90" />
+      </summary>
+      <ul className="mt-2.5 space-y-2">
+        {cfg.about.map((line) => (
+          <li key={line} className="text-[11px] text-gray-600 leading-relaxed">{line}</li>
+        ))}
+      </ul>
+    </details>
+  )
+}
+
+function SectionColumn({ section, edition }: SectionColumnProps) {
   const cfg = SECTION_CONFIG[section as keyof typeof SECTION_CONFIG]
   const Icon = cfg.icon
-  const [shouldGenerate, setShouldGenerate] = useState(false)
 
-  const { data: summary, isLoading, isError, error } = useQuery({
-    queryKey: ['summary', edition?.id],
-    queryFn: () => fetchEditionSummary(edition!.id),
-    enabled: !!edition && shouldGenerate && !existingSummary,
-    initialData: existingSummary,
-    retry: false,
+  const { data: summary, isLoading } = useQuery({
+    queryKey: editionKeys.summary(edition?.id ?? 0),
+    queryFn: () => fetchExistingSummary(edition!.id),
+    enabled: !!edition,
     staleTime: Infinity,
   })
 
-  const apiError = error instanceof ApiError ? error : null
-
   if (!edition) {
     return (
-      <div className="bg-white border border-dashed border-gray-200 rounded-xl p-6 flex flex-col items-center justify-center min-h-[280px] text-center">
-        <Layers size={28} className="text-gray-300 mb-3" />
-        <p className="text-sm text-gray-400 font-medium">{cfg.label} não publicada hoje</p>
+      <div className="bg-white border border-dashed border-gray-200 rounded-xl overflow-hidden flex flex-col">
+        <div className="p-6 flex flex-col items-center justify-center min-h-[240px] text-center flex-1">
+          <Layers size={28} className="text-gray-300 mb-3" />
+          <p className="text-sm text-gray-400 font-medium">{cfg.label} não publicada nesta data</p>
+        </div>
+        <SectionGuide section={section} />
       </div>
     )
   }
@@ -134,44 +152,13 @@ function SectionColumn({ section, edition, existingSummary }: SectionColumnProps
       <div className="flex-1 p-5">
         {isLoading && (
           <div className="space-y-2.5">
-            <div className="flex items-center gap-2 mb-4">
-              <div className="w-1.5 h-1.5 rounded-full bg-[#1351B4] animate-pulse" />
-              <span className="text-[11px] font-bold text-[#1351B4] uppercase tracking-wider">Gerando resumo com IA...</span>
-            </div>
-            {[1, 2, 3, 4, 5].map((i) => (
-              <div key={i} className={`h-2.5 bg-gray-100 rounded animate-pulse ${i === 5 ? 'w-2/3' : 'w-full'}`} />
+            {[1, 2, 3, 4].map((i) => (
+              <div key={i} className={`h-2.5 bg-gray-100 rounded animate-pulse ${i === 4 ? 'w-2/3' : 'w-full'}`} />
             ))}
           </div>
         )}
 
-        {isError && (
-          <div className="py-4">
-            <p className="text-[12px] font-bold text-red-600 mb-1">
-              {apiError?.status === 503
-                ? 'Chave Gemini não configurada'
-                : apiError?.status === 502
-                ? 'Link do PDF expirou'
-                : 'Falha ao gerar resumo'}
-            </p>
-            <p className="text-[11px] text-red-500 leading-relaxed mb-3">
-              {apiError?.status === 503
-                ? 'Configure GEMINI_API_KEY no .env.'
-                : apiError?.status === 502
-                ? 'A edição foi encontrada no DOU, mas o link temporário do PDF expirou. Tente novamente em alguns minutos.'
-                : (apiError?.message ?? 'Erro desconhecido.')}
-            </p>
-            {apiError?.status !== 503 && (
-              <button
-                onClick={() => setShouldGenerate(true)}
-                className="text-[11px] font-bold text-red-600 hover:underline"
-              >
-                Tentar novamente
-              </button>
-            )}
-          </div>
-        )}
-
-        {!isLoading && !isError && summary && (
+        {!isLoading && summary && (
           <div className="space-y-3">
             <p className="text-[12px] text-gray-600 leading-relaxed line-clamp-6">
               {summary.summary.replace(/[*#]/g, '').trim()}
@@ -186,21 +173,24 @@ function SectionColumn({ section, edition, existingSummary }: SectionColumnProps
           </div>
         )}
 
-        {!isLoading && !isError && !summary && !shouldGenerate && (
+        {!isLoading && !summary && (
           <div className="flex flex-col items-center justify-center h-full min-h-[120px] text-center">
             <Sparkles size={22} className="text-gray-300 mb-3" />
             <p className="text-[12px] text-gray-500 mb-4 leading-relaxed">
               Resumo IA ainda não gerado para esta edição.
             </p>
-            <button
-              onClick={() => setShouldGenerate(true)}
-              className={`text-[11px] font-bold px-3 py-1.5 rounded-lg border transition-all ${cfg.iconBg} ${cfg.iconColor} border-current/20 hover:opacity-80`}
+            <Link
+              to={`/editions/${edition.id}?gerar=1`}
+              className={`inline-flex items-center gap-1 text-[11px] font-bold px-3 py-1.5 rounded-lg border transition-all ${cfg.iconBg} ${cfg.iconColor} border-current/20 hover:opacity-80`}
             >
-              Gerar com IA
-            </button>
+              Abrir e gerar resumo
+              <ArrowRight size={11} />
+            </Link>
           </div>
         )}
       </div>
+
+      <SectionGuide section={section} />
     </div>
   )
 }
@@ -226,11 +216,6 @@ export function HomePage() {
   const minDate = subMonths(today, 1)
 
   const { data: editions, isLoading, isError } = useEditions(date)
-  const { data: allSummaries } = useQuery({
-    queryKey: ['summaries'],
-    queryFn: fetchAllSummaries,
-    staleTime: 2 * 60 * 1000,
-  })
   const { data: availableDates } = useQuery({
     queryKey: ['edition-dates'],
     queryFn: fetchAvailableDates,
@@ -250,11 +235,6 @@ export function HomePage() {
       setSearchParams({ date: format(fallback, 'yyyy-MM-dd') }, { replace: true })
     }
   }, [isLoading, isError, editions, availableDates, searchParams, setSearchParams])
-
-  const summaryByEditionId = useMemo(() => {
-    if (!allSummaries) return {} as Record<number, AISummary>
-    return Object.fromEntries(allSummaries.map((s) => [s.editionId, s])) as Record<number, AISummary>
-  }, [allSummaries])
 
   async function handleFetchDate() {
     setIsFetchingDate(true)
@@ -410,7 +390,6 @@ export function HomePage() {
                 key={section}
                 section={section}
                 edition={edition}
-                existingSummary={edition ? summaryByEditionId[edition.id] : undefined}
               />
             )
           })}
