@@ -1,7 +1,8 @@
 """index the full text of every edition
 
 Adds indexing state to editions and a trigram index for accent-insensitive substring search.
-f_unaccent wraps unaccent as IMMUTABLE so it can be used in an index expression.
+f_unaccent wraps unaccent as IMMUTABLE so it can be used in an index expression. unaccent is
+created here as well: the earlier migration that should have created it was stamped without running.
 
 Revision ID: e3b1d7a9c2f4
 Revises: c7e2a1f04d83
@@ -23,6 +24,7 @@ def upgrade() -> None:
     op.add_column("editions", sa.Column("text_indexed_at", sa.DateTime(timezone=True), nullable=True))
     op.add_column("editions", sa.Column("index_attempts", sa.Integer(), nullable=False, server_default="0"))
 
+    op.execute("CREATE EXTENSION IF NOT EXISTS unaccent")
     op.execute("CREATE EXTENSION IF NOT EXISTS pg_trgm")
     op.execute(
         """
