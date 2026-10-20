@@ -266,9 +266,9 @@ export function SummaryPanel({ editionId, summary, isLoading, isError, error, re
     <div className="border border-gray-200 rounded-xl overflow-hidden shadow-sm bg-white">
 
       {/* Header bar */}
-      <div className="flex items-center justify-between px-5 py-3 bg-gray-50 border-b border-gray-200">
-        <div className="flex items-center gap-2">
-          <span className="text-xs font-extrabold text-[#1351B4] uppercase tracking-wider">
+      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 px-5 py-3 bg-gray-50 border-b border-gray-200">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-xs font-extrabold text-[#1351B4] uppercase tracking-wider whitespace-nowrap">
             Resumo Executivo — IA
           </span>
 
@@ -315,7 +315,7 @@ export function SummaryPanel({ editionId, summary, isLoading, isError, error, re
             <Download size={14} />
           </button>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
           <span className="text-[11px] font-medium text-gray-500 bg-gray-200 px-2 py-0.5 rounded">{summary.model}</span>
           <span className="text-[11px] font-medium text-gray-500">
             {summary.pagesRead} págs. · {format(summary.createdAt, "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
