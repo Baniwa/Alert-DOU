@@ -10,6 +10,7 @@ _SECTION_MAP = {
     "secao3": "section3",
 }
 _DEFAULT_MODEL = "gemini-3.5-flash"
+_MAX_SUMMARY_CHARS = 400_000
 
 
 def _load_prompt(section_key: str) -> str:
@@ -36,7 +37,7 @@ class GeminiClient:
 
     def summarize(self, content: str, section: str) -> str:
         prompt = _load_prompt(section)
-        full_prompt = f"{prompt}\n\n{content}"
+        full_prompt = f"{prompt}\n\n{content[:_MAX_SUMMARY_CHARS]}"
         response = self._client.models.generate_content(
             model=self.model,
             contents=full_prompt,

@@ -1,9 +1,8 @@
-import io
 from unittest.mock import MagicMock, patch
 
 import pytest
 
-from scraper.pdf_extractor import extract_pdf_text, _validate_pdf_url
+from scraper.pdf_extractor import extract_pdf_text, normalise_text, _validate_pdf_url
 
 
 # ── helpers ───────────────────────────────────────────────────────────────────
@@ -12,17 +11,16 @@ DOU_URL = "https://download.in.gov.br/sgpub/do/secao1/2026/2026_06_02/2026_06_02
 
 
 def _make_mock_pdf(pages_text: list[str | None]):
-    mock_pages = []
+    pages = []
     for text in pages_text:
         page = MagicMock()
-        page.extract_text.return_value = text
-        mock_pages.append(page)
+        page.get_textpage.return_value.get_text_bounded.return_value = text
+        pages.append(page)
 
-    mock_pdf = MagicMock()
-    mock_pdf.__enter__ = MagicMock(return_value=mock_pdf)
-    mock_pdf.__exit__ = MagicMock(return_value=False)
-    mock_pdf.pages = mock_pages
-    return mock_pdf
+    document = MagicMock()
+    document.__len__.return_value = len(pages)
+    document.__getitem__.side_effect = lambda i: pages[i]
+    return document
 
 
 def _mock_curl_session(content: bytes = b"%PDF fake", status_code: int = 200):
@@ -74,19 +72,29 @@ class TestExtractPdfText:
         mock_session = _mock_curl_session()
 
         with patch("scraper.pdf_extractor.requests.Session", return_value=mock_session), \
-             patch("scraper.pdf_extractor.pdfplumber.open", return_value=mock_pdf):
+             patch("scraper.pdf_extractor.pdfium.PdfDocument", return_value=mock_pdf):
             text, pages = extract_pdf_text(DOU_URL)
 
         assert "Página 1 conteúdo" in text
         assert "Página 2 conteúdo" in text
         assert pages == 2
 
+    def test_reads_every_page_by_default(self):
+        mock_pdf = _make_mock_pdf([f"P{i}" for i in range(1, 31)])
+        mock_session = _mock_curl_session()
+
+        with patch("scraper.pdf_extractor.requests.Session", return_value=mock_session),              patch("scraper.pdf_extractor.pdfium.PdfDocument", return_value=mock_pdf):
+            text, pages = extract_pdf_text(DOU_URL)
+
+        assert pages == 30
+        assert "P30" in text
+
     def test_respects_max_pages(self):
         mock_pdf = _make_mock_pdf(["P1", "P2", "P3", "P4", "P5"])
         mock_session = _mock_curl_session()
 
         with patch("scraper.pdf_extractor.requests.Session", return_value=mock_session), \
-             patch("scraper.pdf_extractor.pdfplumber.open", return_value=mock_pdf):
+             patch("scraper.pdf_extractor.pdfium.PdfDocument", return_value=mock_pdf):
             text, pages = extract_pdf_text(DOU_URL, max_pages=3)
 
         assert pages == 3
@@ -97,7 +105,7 @@ class TestExtractPdfText:
         mock_session = _mock_curl_session()
 
         with patch("scraper.pdf_extractor.requests.Session", return_value=mock_session), \
-             patch("scraper.pdf_extractor.pdfplumber.open", return_value=mock_pdf):
+             patch("scraper.pdf_extractor.pdfium.PdfDocument", return_value=mock_pdf):
             with pytest.raises(RuntimeError, match="No text extracted"):
                 extract_pdf_text(DOU_URL)
 
@@ -106,7 +114,7 @@ class TestExtractPdfText:
         mock_session = _mock_curl_session()
 
         with patch("scraper.pdf_extractor.requests.Session", return_value=mock_session), \
-             patch("scraper.pdf_extractor.pdfplumber.open", return_value=mock_pdf):
+             patch("scraper.pdf_extractor.pdfium.PdfDocument", return_value=mock_pdf):
             text, pages = extract_pdf_text(DOU_URL)
 
         assert "Conteúdo real" in text
@@ -136,7 +144,21 @@ class TestExtractPdfText:
         mock_session = _mock_curl_session()
 
         with patch("scraper.pdf_extractor.requests.Session", return_value=mock_session) as mock_cls, \
-             patch("scraper.pdf_extractor.pdfplumber.open", return_value=mock_pdf):
+             patch("scraper.pdf_extractor.pdfium.PdfDocument", return_value=mock_pdf):
             extract_pdf_text(DOU_URL)
 
         mock_cls.assert_called_once_with(impersonate="chrome", timeout=180)
+
+
+class TestNormaliseText:
+    def test_joins_name_split_across_lines(self):
+        assert normalise_text("Nomear JOÃO DA\r\nSILVA para") == "Nomear JOÃO DA SILVA para"
+
+    def test_rejoins_hyphenated_word(self):
+        assert normalise_text("autori-\nzação") == "autorização"
+
+    def test_keeps_hyphen_between_digits(self):
+        assert normalise_text("CNPJ 12.345.678/0001-\n90") == "CNPJ 12.345.678/0001- 90"
+
+    def test_keeps_masked_cpf(self):
+        assert normalise_text("CPF ***.488.123-** e") == "CPF ***.488.123-** e"

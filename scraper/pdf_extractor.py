@@ -1,12 +1,11 @@
-import io
 import logging
+import re
 
 from curl_cffi import requests
-import pdfplumber
+import pypdfium2 as pdfium
 
 logger = logging.getLogger(__name__)
 
-_MAX_PAGES = 8
 _REQUEST_TIMEOUT = 180
 _HEADERS = {
     "User-Agent": (
@@ -18,6 +17,9 @@ _HEADERS = {
     "Accept-Language": "pt-BR,pt;q=0.9",
     "Referer": "https://www.in.gov.br/",
 }
+
+_HYPHENATED_LINE_BREAK = re.compile(r"([^\W\d_])-[ \t]*\r?\n\s*([^\W\d_])")
+_WHITESPACE = re.compile(r"\s+")
 
 
 _ALLOWED_HOSTS = {"www.in.gov.br", "in.gov.br", "pesquisa.in.gov.br", "download.in.gov.br"}
@@ -43,7 +45,7 @@ def _download_pdf(pdf_url: str) -> bytes:
         raise RuntimeError(f"Failed to download PDF. HTTP {response.status_code}")
 
     # DOU server returns HTTP 200 with an HTML expiration page when a signed URL
-    # expires. Validate the PDF magic bytes before handing to pdfplumber.
+    # expires. Validate the PDF magic bytes before handing to the parser.
     if not response.content.startswith(b"%PDF"):
         content_type = response.headers.get("content-type", "unknown")
         raise RuntimeError(
@@ -55,20 +57,36 @@ def _download_pdf(pdf_url: str) -> bytes:
     return response.content
 
 
-def extract_pdf_text(pdf_url: str, max_pages: int = _MAX_PAGES) -> tuple[str, int]:
+def normalise_text(raw: str) -> str:
+    """Rejoin words split across lines and collapse whitespace, so a name broken by the
+    PDF layout ("JOÃO DA\\nSILVA", "SIL-\\nVA") still matches a plain search."""
+    return _WHITESPACE.sub(" ", _HYPHENATED_LINE_BREAK.sub(r"\1\2", raw)).strip()
+
+
+def extract_pdf_text(pdf_url: str, max_pages: int | None = None) -> tuple[str, int]:
+    """Download the PDF and return (normalised text, pages read). Reads every page by default."""
     pdf_bytes = _download_pdf(pdf_url)
 
-    with pdfplumber.open(io.BytesIO(pdf_bytes)) as pdf:
-        total = len(pdf.pages)
-        limit = min(max_pages, total)
+    document = pdfium.PdfDocument(pdf_bytes)
+    try:
+        total = len(document)
+        limit = total if max_pages is None else min(max_pages, total)
         parts: list[str] = []
-        for page in pdf.pages[:limit]:
-            text = page.extract_text()
-            if text:
-                parts.append(text.strip())
+        for index in range(limit):
+            page = document[index]
+            textpage = page.get_textpage()
+            try:
+                text = textpage.get_text_bounded()
+            finally:
+                textpage.close()
+                page.close()
+            if text and text.strip():
+                parts.append(text)
+    finally:
+        document.close()
 
     if not parts:
         raise RuntimeError(f"No text extracted from PDF (pages read: {limit})")
 
     logger.info("Extracted %d/%d pages", limit, total)
-    return "\n\n".join(parts), limit
+    return normalise_text("\n".join(parts)), limit
