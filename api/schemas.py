@@ -33,6 +33,8 @@ class EditionSearchResult(BaseModel):
     title: str
     edition_number: str
     pub_date: date
+    page: int
+    matching_pages: int
     excerpt: str
 
     model_config = {"from_attributes": False}

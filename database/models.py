@@ -17,7 +17,9 @@ class Edition(Base):
     pub_date: Mapped[date] = mapped_column(Date, index=True)
     page_count: Mapped[int] = mapped_column(Integer)
     pdf_url: Mapped[str] = mapped_column(String(500), default="")
-    full_text: Mapped[str | None] = mapped_column(Text, nullable=True, default=None)
+    text_pages: Mapped[int | None] = mapped_column(Integer, nullable=True, default=None)
+    text_indexed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True, default=None)
+    index_attempts: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
     scraped_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
     __table_args__ = (
@@ -26,6 +28,14 @@ class Edition(Base):
 
     def __repr__(self) -> str:
         return f"<Edition {self.title!r} #{self.edition_number} {self.pub_date}>"
+
+
+class EditionPage(Base):
+    __tablename__ = "edition_pages"
+
+    edition_id: Mapped[int] = mapped_column(ForeignKey("editions.id", ondelete="CASCADE"), primary_key=True)
+    page_number: Mapped[int] = mapped_column(Integer, primary_key=True)
+    text: Mapped[str] = mapped_column(Text, nullable=False)
 
 
 class AISummary(Base):

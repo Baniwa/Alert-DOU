@@ -22,16 +22,17 @@ def _make_stubs():
     ai_stub.GeminiClient = MagicMock
     ai_stub._detect_section = MagicMock(return_value="secao1")
 
-    pdf_stub = MagicMock()
-    pdf_stub.extract_pdf_text = MagicMock(return_value=("texto", 3))
+    indexer_stub = MagicMock()
+    indexer_stub.index_edition = MagicMock(return_value=4)
+    indexer_stub.edition_text = MagicMock(return_value="texto")
 
     ai_pkg_stub = MagicMock()
 
     return {
         "ai": ai_pkg_stub,
         "ai.client": ai_stub,
-        "scraper.pdf_extractor": pdf_stub,
-    }, ai_stub, pdf_stub
+        "scraper.indexer": indexer_stub,
+    }, ai_stub, indexer_stub
 
 
 @pytest.fixture(autouse=True)
@@ -47,7 +48,7 @@ def _patch_heavy_modules(monkeypatch):
 
 def _current_stubs():
     import sys
-    return sys.modules.get("ai.client"), sys.modules.get("scraper.pdf_extractor")
+    return sys.modules.get("ai.client"), sys.modules.get("scraper.indexer")
 
 
 class TestScrapeToday:
@@ -100,10 +101,12 @@ class TestSummarizeEdition:
     def test_generates_summary_when_not_cached(self):
         import sys
         ai_stub = sys.modules["ai.client"]
-        pdf_stub = sys.modules["scraper.pdf_extractor"]
+        indexer_stub = sys.modules["scraper.indexer"]
 
         session = MagicMock()
-        session.get.return_value = MagicMock(pdf_url="https://...", title="DOU Secao 2", id=5)
+        session.get.return_value = MagicMock(
+            pdf_url="https://...", title="DOU Secao 2", id=5, text_indexed_at=None, text_pages=4
+        )
         session.scalar.return_value = None
 
         mock_client = MagicMock()
@@ -112,11 +115,12 @@ class TestSummarizeEdition:
 
         with patch("database.get_session", _ctx(session)), \
              patch("sqlalchemy.select", _mock_select()), \
-             patch.object(pdf_stub, "extract_pdf_text", return_value=("texto pdf", 4)), \
+             patch.object(indexer_stub, "index_edition", return_value=4) as index, \
              patch.object(ai_stub, "GeminiClient", return_value=mock_client):
             from workers.tasks import summarize_edition
             result = summarize_edition.run(edition_id=5)
 
         assert result["edition_id"] == 5
         assert result["pages_read"] == 4
+        index.assert_called_once_with(5)
         session.add.assert_called_once()

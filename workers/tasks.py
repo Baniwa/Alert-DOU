@@ -60,7 +60,7 @@ def summarize_edition(self, edition_id: int):
         from ai.client import GeminiClient, _detect_section
         from database import get_session
         from database.models import AISummary, Edition
-        from scraper.pdf_extractor import extract_pdf_text
+        from scraper.indexer import edition_text, index_edition
 
         with get_session() as session:
             edition = session.get(Edition, edition_id)
@@ -75,18 +75,18 @@ def summarize_edition(self, edition_id: int):
                 logger.info("summarize_edition: cache hit for edition %d", edition_id)
                 return {"cached": True}
 
-            pdf_text, pages_read = extract_pdf_text(edition.pdf_url)
-
-            if not edition.full_text:
-                edition.full_text = pdf_text
-                session.flush()
+            if not edition.text_indexed_at:
+                index_edition(edition_id)
+                session.refresh(edition)
+            pdf_text = edition_text(edition_id, 400_000)
+            pages_read = edition.text_pages or 0
 
             client = GeminiClient()
             section = _detect_section(edition.title)
             summary_text = client.summarize(pdf_text, section)
 
             summary = AISummary(
-                edition_id=edition_id,
+                edition=edition,
                 model=client.model,
                 summary=summary_text,
                 pages_read=pages_read,
