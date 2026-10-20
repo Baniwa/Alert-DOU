@@ -7,7 +7,18 @@ from sqlalchemy.orm import Session, sessionmaker
 from database.models import Base
 
 _engine: Engine | None = None
+_DRIVER_PREFIXES = ("postgresql://", "postgres://")
 _SessionFactory: sessionmaker | None = None
+
+
+def database_url() -> str:
+    """DATABASE_URL with the psycopg2 driver made explicit. SQLAlchemy 2.1 switched the default
+    for postgresql:// to psycopg 3, which this project does not install."""
+    url = os.environ["DATABASE_URL"]
+    for prefix in _DRIVER_PREFIXES:
+        if url.startswith(prefix):
+            return "postgresql+psycopg2://" + url[len(prefix):]
+    return url
 
 
 def _init() -> None:
@@ -15,8 +26,7 @@ def _init() -> None:
     if _engine is not None:
         return
     load_dotenv()
-    url = os.environ["DATABASE_URL"]  # fail fast at first real DB access
-    _engine = create_engine(url, pool_size=5, max_overflow=10, echo=False)
+    _engine = create_engine(database_url(), pool_size=5, max_overflow=10, echo=False)
     _SessionFactory = sessionmaker(bind=_engine, autocommit=False, autoflush=False, expire_on_commit=False)
 
 
