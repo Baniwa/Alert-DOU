@@ -100,6 +100,9 @@ function SectionGuide({ section }: { section: Section }) {
           <li key={line} className="text-[11px] text-gray-600 leading-relaxed">{line}</li>
         ))}
       </ul>
+      <Link to="/glossario" className="inline-block mt-2.5 text-[11px] font-bold text-[#1351B4] hover:text-[#168821]">
+        Termos e siglas no glossário
+      </Link>
     </details>
   )
 }

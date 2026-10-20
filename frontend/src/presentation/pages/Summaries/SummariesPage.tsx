@@ -28,7 +28,7 @@ function matchesTab(title: string | undefined, tab: SectionTab): boolean {
 
 // Use fetcher for the new endpoint
 const fetchSummaries = async (): Promise<AISummary[]> => {
-  const { data } = await apiClient.get<AISummaryDTO[]>('/summaries')
+  const { data } = await apiClient.get<AISummaryDTO[]>('/summaries/')
   return data.map(toAISummary)
 }
 

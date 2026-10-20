@@ -24,7 +24,7 @@ function saveConcursos(list: string[]) {
 }
 
 const fetchSummaries = async (): Promise<AISummary[]> => {
-  const { data } = await apiClient.get<AISummaryDTO[]>('/summaries')
+  const { data } = await apiClient.get<AISummaryDTO[]>('/summaries/')
   return data.map(toAISummary)
 }
 

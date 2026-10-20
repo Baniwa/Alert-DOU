@@ -1,4 +1,4 @@
-import { BookOpen, Eye, Code2, LayoutDashboard, Sparkles, ExternalLink, Landmark, Radar, Newspaper, Info, Star } from 'lucide-react'
+import { BookOpen, Eye, Code2, Leaf, Library, LayoutDashboard, Sparkles, ExternalLink, Landmark, Radar, Newspaper, Info, Star } from 'lucide-react'
 import { NavLink, Outlet } from 'react-router-dom'
 import { useMonitorMatches } from '../../application/hooks/useMonitorMatches'
 import { loadItems, readLastVisit } from '../pages/Monitor/monitor.helpers'
@@ -11,6 +11,8 @@ const NAV = [
   { to: '/summaries', icon: Sparkles, label: 'Resumos IA' },
   { to: '/radar', icon: Radar, label: 'Radar' },
   { to: '/monitor', icon: Eye, label: 'Monitor' },
+  { to: '/temas', icon: Leaf, label: 'Temas' },
+  { to: '/glossario', icon: Library, label: 'Glossário' },
   { to: '/about', icon: Info, label: 'Sobre' },
   { to: 'https://github.com/Baniwa/Alert-DOU/wiki', icon: BookOpen, label: 'Documentação', external: true },
   { to: `${API_BASE}/docs`, icon: Code2, label: 'API (devs)', external: true },

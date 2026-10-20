@@ -28,6 +28,7 @@ def _escape_like(value: str) -> str:
 
 
 _SEARCHABLE_TEXT = func.f_unaccent(func.lower(EditionPage.text))
+_REGEX_SPECIAL = re.compile(r"([.^$*+?()\[\]{}|\\])")
 _EXCERPT_BEFORE = 120
 _EXCERPT_AFTER = 100
 _SUMMARY_MAX_CHARS = 400_000
@@ -46,6 +47,12 @@ def _search_term(q: str) -> str:
     return term
 
 
+def _word_pattern(term: str) -> str:
+    """POSIX regex for the term as whole words, so "Ibama" does not match "Ribamar"."""
+    escaped = _REGEX_SPECIAL.sub(r"\\\1", term)
+    return f"(^|[^[:alnum:]]){escaped}([^[:alnum:]]|$)"
+
+
 @router.get("/search", response_model=list[EditionSearchResult])
 @limiter.limit("20/minute")
 def search_editions(
@@ -62,8 +69,8 @@ def search_editions(
     log_query = _CPF_RE.sub("[CPF]", term)
     logger.info("edition_search ip=%s q=%r", request.client.host, log_query[:50])
 
-    needle = func.f_unaccent(func.lower(term))
-    start = func.greatest(func.strpos(_SEARCHABLE_TEXT, needle) - _EXCERPT_BEFORE, 1)
+    pattern = func.f_unaccent(func.lower(_word_pattern(term)))
+    start = func.greatest(func.regexp_instr(_SEARCHABLE_TEXT, pattern) - _EXCERPT_BEFORE, 1)
     hits = (
         select(
             EditionPage.edition_id,
@@ -74,7 +81,7 @@ def search_editions(
             func.row_number().over(partition_by=EditionPage.edition_id, order_by=EditionPage.page_number).label("rank"),
             func.count().over(partition_by=EditionPage.edition_id).label("matching_pages"),
         )
-        .where(_SEARCHABLE_TEXT.like(func.f_unaccent(func.lower(f"%{_escape_like(term)}%")), escape="\\"))
+        .where(_SEARCHABLE_TEXT.op("~")(pattern))
         .subquery()
     )
     stmt = (
