@@ -1,4 +1,5 @@
-import { BookOpen, Eye, Code2, Leaf, Library, LayoutDashboard, Sparkles, ExternalLink, Landmark, Radar, Newspaper, Info, Star } from 'lucide-react'
+import { BookOpen, Eye, Code2, Leaf, Library, LayoutDashboard, Sparkles, ExternalLink, Landmark, Radar, Newspaper, Info, Star, Menu, X } from 'lucide-react'
+import { useState } from 'react'
 import { NavLink, Outlet } from 'react-router-dom'
 import { useMonitorMatches } from '../../application/hooks/useMonitorMatches'
 import { loadItems, readLastVisit } from '../pages/Monitor/monitor.helpers'
@@ -26,12 +27,23 @@ function useMonitorBadge() {
 
 export function AppLayout() {
   const monitorBadge = useMonitorBadge()
+  const [menuOpen, setMenuOpen] = useState(false)
+  const closeMenu = () => setMenuOpen(false)
 
   return (
     <div className="flex h-screen bg-[#F8F9FA] overflow-hidden text-gray-900 font-sans">
 
       {/* ── SIDEBAR ── */}
-      <aside className="w-56 flex-shrink-0 flex flex-col bg-[#1351B4] shadow-xl z-10">
+      {menuOpen && (
+        <div className="fixed inset-0 z-30 bg-black/40 md:hidden" onClick={closeMenu} aria-hidden="true" />
+      )}
+
+      <aside
+        id="app-menu"
+        className={`fixed inset-y-0 left-0 z-40 w-64 flex-shrink-0 flex flex-col bg-[#1351B4] shadow-xl transition-transform duration-200 md:static md:z-10 md:w-56 md:translate-x-0 ${
+          menuOpen ? 'translate-x-0' : '-translate-x-full'
+        }`}
+      >
 
         {/* GOV.BR strip */}
         <div className="bg-[#168821] border-b-2 border-[#FFCD00] px-2 py-1.5">
@@ -50,6 +62,9 @@ export function AppLayout() {
               <p className="text-[16px] font-extrabold text-white leading-tight">Alert DOU</p>
               <p className="text-[10px] text-blue-200 uppercase tracking-wider mt-0.5 truncate">Imprensa Nacional</p>
             </div>
+            <button onClick={closeMenu} aria-label="Fechar menu" className="ml-auto p-1 text-blue-100 hover:text-white md:hidden">
+              <X size={18} />
+            </button>
           </div>
         </div>
 
@@ -73,6 +88,7 @@ export function AppLayout() {
                 key={to}
                 to={to}
                 end
+                onClick={closeMenu}
                 className={({ isActive }) =>
                   `flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 ${
                     isActive
@@ -123,12 +139,28 @@ export function AppLayout() {
       {/* ── MAIN ── */}
       <div className="flex-1 flex flex-col overflow-hidden relative">
         <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-[#1351B4] via-[#168821] to-[#FFCD00]" />
-        
-        <main className="flex-1 overflow-y-auto px-10 py-10">
+
+        <header className="md:hidden flex items-center justify-between gap-3 px-4 h-14 flex-shrink-0 bg-[#1351B4] text-white">
+          <div className="flex items-center gap-2">
+            <Landmark size={18} className="text-[#FFCD00]" />
+            <span className="text-[15px] font-extrabold">Alert DOU</span>
+          </div>
+          <button
+            onClick={() => setMenuOpen(true)}
+            aria-label="Abrir menu"
+            aria-controls="app-menu"
+            aria-expanded={menuOpen}
+            className="p-2 -mr-2"
+          >
+            <Menu size={20} />
+          </button>
+        </header>
+
+        <main className="flex-1 overflow-y-auto px-4 py-6 sm:px-6 md:px-10 md:py-10">
           <Outlet />
         </main>
 
-        <footer className="flex-shrink-0 border-t border-gray-200 bg-white px-10 py-3 flex items-center justify-between gap-4">
+        <footer className="flex-shrink-0 border-t border-gray-200 bg-white px-4 md:px-10 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-4">
           <p className="text-[11px] text-gray-400">
             © 2026 <span className="font-semibold text-gray-600">Giulia Gabriela</span> · Dados públicos da{' '}
             <a href="https://www.in.gov.br" target="_blank" rel="noopener noreferrer" className="hover:text-[#1351B4] transition-colors">
@@ -136,7 +168,7 @@ export function AppLayout() {
             </a>
           </p>
 
-          <div className="flex items-center gap-4">
+          <div className="hidden sm:flex flex-wrap items-center gap-x-4 gap-y-1">
             <a
               href="https://github.com/Baniwa/Alert-DOU"
               target="_blank"
