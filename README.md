@@ -1,177 +1,139 @@
-# Alert DOU — AI-Powered Monitor for Brazil's Official Gazette
+# Alert DOU
 
-> Automated scraping, AI summarisation and personal name tracking for the *Diário Oficial da União* — Brazil's federal government journal, published daily across hundreds of pages.
+> A reader for Brazil's *Diário Oficial da União*: every page indexed and searchable, an AI summary per section, and a personal monitor for names, companies and topics.
 
 [![CI](https://github.com/Baniwa/Alert-DOU/actions/workflows/ci.yml/badge.svg)](https://github.com/Baniwa/Alert-DOU/actions/workflows/ci.yml)
 [![Python](https://img.shields.io/badge/Python-3.12-3776AB?logo=python&logoColor=white)](https://python.org)
 [![React](https://img.shields.io/badge/React-19-61DAFB?logo=react&logoColor=black)](https://react.dev)
-[![FastAPI](https://img.shields.io/badge/FastAPI-0.136-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
+[![FastAPI](https://img.shields.io/badge/FastAPI-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
----
-
-<!-- Add screenshots after deploying. Suggested: homepage (3 cols), EditionDetail with summary, Name Tracker with results -->
+![Jornal do Dia: the three sections of the day with their AI summaries](docs/screenshots/jornal-do-dia.png)
 
 ---
 
 ## What is the DOU?
 
-The *Diário Oficial da União* is Brazil's equivalent of the Federal Register. Every federal appointment, dismissal, regulation, public notice and government contract must be published there before taking legal effect. It comes out every weekday in three sections:
+The *Diário Oficial da União* is Brazil's federal gazette, the equivalent of the US Federal Register. Appointments, dismissals, laws, decrees, public tenders and government contracts only take effect once they are published there. It comes out every weekday in three sections:
 
-- **Seção 1** — Regulatory acts (laws, decrees, ordinances)
-- **Seção 2** — Personnel acts (appointments, dismissals, retirements)
-- **Seção 3** — Contracts, public notices, authorisations
+- **Seção 1**: regulatory acts (laws, decrees, ordinances, resolutions)
+- **Seção 2**: personnel acts (appointments, dismissals, retirements)
+- **Seção 3**: contracts, tenders and penalties applied to suppliers
 
-Each edition runs 300–600 pages. Roughly 220 editions are published per year. Anyone waiting for a federal appointment, tracking a contract, or monitoring regulation changes has no choice but to read it manually — or build something like this.
+A single section often runs past 200 pages. On 20 October 2026, Seção 3 alone had 275. If you are waiting for your appointment after a public exam, or following a company's contracts, you either read all of that or you miss it.
 
----
+## What it does
 
-## What This Project Does
+- **Indexes every page.** A scheduler scrapes the day's editions at 08:00 and extracts the text of every page into PostgreSQL. Search is accent-insensitive, matches whole words and tells you the page.
+- **Monitor.** Save people, CPFs, companies (CNPJ or name) and free terms. The app shows where each one appeared, flags what is new since your last visit, and lets you mark a company as one to avoid. The list stays in your browser.
+- **CPF the way the DOU prints it.** The gazette masks CPFs (`***.456.789-**`), so the search matches the six middle digits and warns that the result may be someone else.
+- **AI summary per section** with Gemini Flash, in a fixed structure per section, generated on demand and cached. Acronyms are spelled out on first mention. English translation on request.
+- **Themes.** Ready-made searches for Environment (Ibama, ICMBio, Conama, MMA, environmental licensing, ANA) and Public exams.
+- **Learning aids.** Each section on the home page explains what it publishes and the legal deadlines that matter (for example 30 days to take office after an appointment, Law 8.112/1990). A glossary covers act types, personnel and procurement terms and federal acronyms, citing the law where there is one.
+- **Works on a phone.**
 
-- **Scrapes the DOU daily** via a headless Chromium browser (the portal's WAF blocks plain HTTP clients)
-- **Extracts text from PDFs** — each section is a signed PDF; the scraper downloads and parses them
-- **Summarises each section with Gemini Flash** — produces a concise, structured digest per edition
-- **Translates summaries to English on demand** — cached in the database after the first request
-- **Calendar date picker** — iPhone-style widget showing green dots on days with indexed editions; click any past weekday to navigate or trigger a live scrape
-- **On-demand scraping** — "Buscar no DOU" button fetches metadata for any unindexed date in ~20 s, without downloading PDFs or running AI
-- **Backfill system** — `POST /editions/backfill` queues lightweight metadata scrapes for a date range via Celery, covering the full history since January 2026
-- **Text highlights** — select any phrase in a summary to highlight it; persisted locally via localStorage
-- **Exposes a REST API** — paginated endpoints for editions, summaries and full-text search
-- **Serves a React frontend** — newspaper-style homepage with date navigation and section columns
-- **Name Tracker** — store a name or CPF locally; the app highlights any mention in AI summaries
+| Themes | Phone |
+|---|---|
+| ![Themes page with Environment results](docs/screenshots/temas.png) | ![Home page at 390 px](docs/screenshots/celular.png) |
 
----
-
-## Tech Stack
+## Tech stack
 
 | Layer | Technology |
 |---|---|
-| Scraper | Playwright + playwright-stealth (headless Chromium, WAF bypass) |
-| PDF extraction | pdfplumber + curl-cffi (HTTP/2, Chrome impersonation) |
-| AI | Google Gemini Flash (summarisation + EN translation) |
-| API | FastAPI 0.136 + Pydantic + slowapi (rate limiting) |
-| Task queue | Celery + Redis |
-| Database | PostgreSQL 16 + SQLAlchemy 2 + Alembic |
-| Frontend | React 19 + TypeScript + Tailwind CSS v4 + Vite |
-| State management | TanStack Query (React Query) |
-| Infrastructure | Docker Compose (4 services: api, worker, db, redis) |
-
----
+| Scraper | Playwright + playwright-stealth (the portal's WAF blocks plain HTTP clients) |
+| PDF download and text | curl-cffi (Chrome impersonation) + pypdfium2 |
+| Search | PostgreSQL 16, one row per page, `pg_trgm` index over `unaccent(lower(text))` |
+| AI | Google Gemini Flash (summaries and translation) |
+| API | FastAPI + Pydantic + slowapi (rate limiting) |
+| Jobs | `schedule` for the daily scrape and the indexer; Celery + Redis for backfills |
+| Frontend | React 19, TypeScript, Tailwind CSS v4, Vite, TanStack Query |
+| Infrastructure | Docker Compose: `api`, `worker`, `celery`, `db`, `redis` |
 
 ## Architecture
 
 ```
-┌──────────────────────────────────────────────────────────────┐
-│  Celery worker (daily schedule + on-demand backfill)         │
-│    └─► Playwright scrapes pesquisa.in.gov.br                 │
-│          └─► PDFs downloaded from download.in.gov.br         │
-│                └─► pdfplumber extracts text                  │
-│                      └─► Gemini Flash generates summary      │
-│                            └─► PostgreSQL stores everything  │
-└──────────────────────────────────────────────────────────────┘
-             │
-             ▼
-┌──────────────────────┐       ┌──────────────────────────────┐
-│  FastAPI (REST API)  │◄─────►│  React frontend              │
-│  :8000               │       │  - Newspaper home (3 cols)   │
-│  /editions           │       │  - Calendar date picker      │
-│  /summaries/search   │       │  - PT/EN summary toggle      │
-│  /editions/{id}/sum… │       │  - Text highlights           │
-└──────────────────────┘       │  - Name Tracker (localStorage│
-                               └──────────────────────────────┘
+worker (scheduler)
+  08:00      scrape pesquisa.in.gov.br with Playwright  ->  editions
+  every 30m  download PDFs, extract every page          ->  edition_pages (trigram index)
+
+celery       POST /editions/backfill queues one scrape per date
+
+api (FastAPI)
+  /editions/search     whole-word search over edition_pages, page and excerpt per edition
+  /editions/{id}/summary   Gemini summary from the indexed text, cached in ai_summaries
+
+frontend (React)
+  Jornal do Dia · Monitor · Temas · Glossário · edition detail with summary
 ```
 
----
+Signed PDF links on the DOU expire. When a download fails, the indexer scrapes that date again for fresh links and retries once; an edition is given up after five failed attempts.
 
-## Quick Start (Docker)
+## Running it locally
 
 ```bash
 git clone https://github.com/Baniwa/Alert-DOU.git
 cd Alert-DOU
-
-cp .env.example .env          # set POSTGRES_PASSWORD and GEMINI_API_KEY
-
-docker compose up -d          # API :8000 · DB :5432 · Redis :6379 · Worker
+cp .env.example .env        # set POSTGRES_PASSWORD and GEMINI_API_KEY
+docker compose up -d        # api on :8000, runs migrations on start
 ```
 
-The `docker-compose.override.yml` included in the repo mounts the source code into the container and starts uvicorn with `--reload`, so any Python change you make is reflected immediately without rebuilding the image.
+`docker-compose.override.yml` mounts the source into the containers and runs uvicorn with `--reload`. It is meant for development only.
 
-Start the frontend separately:
+Frontend:
 
 ```bash
 cd frontend
+cp .env.example .env        # VITE_API_URL=http://localhost:8000
 npm install
-npm run dev       # http://localhost:5173
+npm run dev                 # http://localhost:5173
 ```
 
-API docs are available at `http://localhost:8000/docs`.
+Swagger UI is at `http://localhost:8000/docs`.
 
----
-
-## Environment Variables
+### Environment variables
 
 | Variable | Required | Description |
 |---|---|---|
-| `POSTGRES_PASSWORD` | ✅ | PostgreSQL password |
-| `GEMINI_API_KEY` | ✅ | Google AI Studio key — [get one free](https://aistudio.google.com/app/apikey) |
-| `POSTGRES_USER` | optional | Default: `alertdou` |
-| `POSTGRES_DB` | optional | Default: `alertdou` |
-| `CORS_ORIGINS` | optional | Comma-separated allowed origins. Default: `http://localhost:5173,http://localhost:4173` |
-| `ENVIRONMENT` | optional | Set to `production` to enable HSTS |
+| `POSTGRES_PASSWORD` | yes | PostgreSQL password |
+| `GEMINI_API_KEY` | yes | Google AI Studio key |
+| `POSTGRES_USER` / `POSTGRES_DB` | no | Default `alertdou` |
+| `CORS_ORIGINS` | no | Comma-separated origins. Default `http://localhost:5173,http://localhost:4173` |
+| `ENVIRONMENT` | no | `production` turns on HSTS |
+| `ROOT_PATH` | no | Prefix when a reverse proxy serves the API under a path and strips it, e.g. `/api` |
 
----
-
-## API Endpoints
+## API
 
 | Method | Path | Description |
 |---|---|---|
-| GET | `/editions/` | List editions (paginated, filterable by date) |
-| GET | `/editions/dates` | List distinct publication dates with indexed data |
-| GET | `/editions/{id}` | Get a single edition |
-| GET | `/editions/{id}/summary` | Get or generate the Portuguese AI summary |
-| GET | `/editions/{id}/summary/en` | Get or generate the English translation |
-| POST | `/editions/fetch-date?date=YYYY-MM-DD` | Scrape a specific date synchronously (~20 s) |
-| POST | `/editions/backfill` | Queue metadata scrapes for a date range via Celery |
-| GET | `/editions/search?q=` | Full-text search across PDF content (accent-insensitive) |
-| GET | `/summaries/` | List all summaries (paginated) |
-| GET | `/summaries/search?q=` | Full-text search across AI summary text |
-| GET | `/health` | Health check |
-| GET | `/docs` | Swagger UI |
+| GET | `/editions/` | Editions, filterable by date |
+| GET | `/editions/dates` | Dates that have editions |
+| GET | `/editions/{id}` | One edition |
+| GET | `/editions/{id}/summary` | Portuguese summary; generates it if missing. `?generate=false` only returns a saved one |
+| GET | `/editions/{id}/summary/en` | English translation of the summary |
+| GET | `/editions/search?q=` | Full-text search. CPF and CNPJ are converted to the format the DOU prints |
+| GET | `/editions/coverage` | How many editions are indexed and for which period |
+| POST | `/editions/fetch-date?date=YYYY-MM-DD` | Scrape one date now |
+| POST | `/editions/backfill` | Queue scrapes for a date range |
+| GET | `/summaries/` | Saved summaries |
+| GET | `/summaries/search?q=` | Search inside summaries |
 
-Rate limits are enforced per IP (3–60 req/min depending on endpoint cost).
-
----
+Every endpoint is rate limited per IP, from 3 per hour (backfill) to 60 per minute.
 
 ## Security
 
-- **SSRF protection** — PDF downloads validated against an allowlist of `*.in.gov.br` hostnames
-- **PII redaction** — CPF patterns replaced with `[CPF]` in structured logs before writing
-- **Security headers** — `X-Content-Type-Options`, `X-Frame-Options`, `COOP`, `CORP`, `Permissions-Policy`, `Referrer-Policy`, HSTS (production)
-- **Request size limit** — bodies over 64 KB rejected before routing
-- **No stack traces in production** — global exception handler returns generic 500
-- **Prompt injection guard** — translation and summarisation prompts include explicit guards against content-embedded instructions
+- PDF downloads only from an allowlist of `in.gov.br` hosts, HTTPS, default port (SSRF)
+- CPFs are replaced with `[CPF]` in request logs
+- `X-Content-Type-Options`, `X-Frame-Options`, `Cross-Origin-Opener-Policy`, `Cross-Origin-Resource-Policy`, `Permissions-Policy`, `Referrer-Policy`, and HSTS in production
+- Request bodies over 64 KB are rejected
+- The translation prompt tells the model to ignore instructions inside the text
+- The Monitor list never leaves the browser
 
-See [SECURITY.md](SECURITY.md) to report a vulnerability.
+See [SECURITY.md](SECURITY.md) to report a vulnerability, and [CONTRIBUTING.md](CONTRIBUTING.md) for the branch and pull request flow.
 
----
+## Why I built it
 
-## Scraper Notes
-
-The DOU portal uses Liferay with session-based CSRF tokens and sits behind an Azion WAF. A plain HTTP client gets blocked immediately. The scraper:
-
-1. Launches a real Chromium instance via Playwright with stealth patches applied
-2. Navigates to the search form and submits it — this triggers a cross-domain redirect to `pesquisa.in.gov.br` with a valid session
-3. Extracts edition metadata (title, edition number, date, page count, PDF URL)
-4. Downloads PDFs from `download.in.gov.br` using curl-cffi with Chrome impersonation
-
-PDF download URLs are signed and expire. If a URL has expired, the scraper detects the `%PDF` magic-byte absence in the response and re-scrapes to obtain a fresh URL.
+I am a developer and a *concurseira*, someone preparing for Brazilian federal civil service exams, and I spent hours every week checking the DOU by hand for appointment notices. This is the tool I wished I had.
 
 ---
 
-## Background
-
-Built as a portfolio project to demonstrate end-to-end engineering across scraping, AI integration, REST API design, security hardening and frontend development. The motivation is personal: as both a developer and a *concurseira* (someone pursuing Brazilian federal civil service positions), I spent hours each week manually checking the DOU for appointment notices. This is the tool I wished I had.
-
----
-
-*Python 3.12 · React 19 · FastAPI · PostgreSQL · Gemini Flash*
+Python 3.12 · React 19 · FastAPI · PostgreSQL · Gemini Flash
